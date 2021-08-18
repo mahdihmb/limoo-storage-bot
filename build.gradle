@@ -1,0 +1,78 @@
+plugins {
+    id 'application'
+}
+apply plugin : 'java'
+
+repositories {
+    flatDir {
+        dirs 'lib'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    // Limoo driver
+    implementation ':limoo-java-driver:2.0.2'
+
+    // OkHttp client
+    implementation 'com.squareup.okhttp3:okhttp:4.9.1'
+    implementation 'com.squareup.okhttp3:okhttp-urlconnection:4.9.1'
+
+    // Atmosphere
+    implementation 'org.atmosphere:wasync:2.1.7'
+
+    // Jackson
+    implementation 'com.fasterxml.jackson.jaxrs:jackson-jaxrs-json-provider:2.12.4'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.4'
+
+    // log4j
+    implementation 'org.apache.logging.log4j:log4j-core:2.14.1'
+    implementation 'org.slf4j:slf4j-log4j12:1.7.32'
+
+    // Apache
+    implementation 'org.apache.commons:commons-dbcp2:2.8.0'
+    implementation 'org.apache.commons:commons-configuration2:2.7'
+    implementation 'commons-beanutils:commons-beanutils:1.9.4'
+
+    // postgresql
+    implementation 'org.postgresql:postgresql:42.2.23'
+
+    // hibernate
+    implementation 'org.hibernate:hibernate-core:5.5.6.Final'
+
+    // flyway
+    implementation 'org.flywaydb:flyway-core:7.12.1'
+}
+
+application {
+    mainClassName = "ir.mahdihmb.limoo_storage_bot.Main"
+}
+
+task runBot(type: JavaExec) {
+    group = "limoo-bot"
+    description = "Run bot"
+    classpath = sourceSets.main.runtimeClasspath
+    main = "ir.mahdihmb.limoo_storage_bot.Main"
+}
+
+task resetAndInitDB(type: JavaExec) {
+    group = "limoo-bot"
+    description = "Clear db and initialize it"
+    classpath = sourceSets.main.runtimeClasspath
+    main = "ir.mahdihmb.limoo_storage_bot.core.Migrate_ResetAndInit"
+}
+
+jar  {
+    baseName = "${rootProject.name}"
+
+    from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+
+    def revision = 'git rev-parse HEAD'.execute().text.trim()
+    def date = new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+    manifest {
+        attributes 'Main-Class': 'ir.mahdihmb.limoo_storage_bot.Main',
+                'Implementation-Title': 'Limoo file bot',
+                "Date": date,
+                "Git-Revision": revision
+    }
+}

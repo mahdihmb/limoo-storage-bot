@@ -1,0 +1,21 @@
+<?xml version = "1.0" encoding = "utf-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping>
+    <class name="ir.limoo.driver.entity.Message" table="messages">
+
+        <id name="id" type="string">
+            <generator class="assigned"/>
+        </id>
+
+        <property name="text" type="string"/>
+
+        <bag name="fileInfos" table="message_file_infos" cascade="all-delete-orphan">
+            <key column="messageId"/>
+            <many-to-many column="fileHash" class="ir.limoo.driver.entity.MessageFile"/>
+        </bag>
+
+    </class>
+</hibernate-mapping>
