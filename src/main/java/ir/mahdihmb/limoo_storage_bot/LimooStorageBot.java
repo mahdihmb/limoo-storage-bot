@@ -4,7 +4,8 @@ import ir.limoo.driver.LimooDriver;
 import ir.limoo.driver.entity.Conversation;
 import ir.limoo.driver.entity.Message;
 import ir.limoo.driver.entity.MessageFile;
-import ir.limoo.driver.event.AddToConversationEventListener;
+import ir.limoo.driver.event.AddedToConversationEventListener;
+import ir.limoo.driver.event.AddedToWorkspaceEventListener;
 import ir.limoo.driver.event.MessageCreatedEventListener;
 import ir.limoo.driver.exception.LimooException;
 import ir.mahdihmb.limoo_storage_bot.core.ConfigService;
@@ -126,11 +127,22 @@ public class LimooStorageBot {
             }
         });
 
-        limooDriver.addEventListener(new AddToConversationEventListener() {
+        limooDriver.addEventListener(new AddedToConversationEventListener() {
             @Override
             public void onAddToConversation(Conversation conversation) {
                 try {
                     conversation.send(helpMsg);
+                } catch (LimooException e) {
+                    logger.error("", e);
+                }
+            }
+        });
+
+        limooDriver.addEventListener(new AddedToWorkspaceEventListener() {
+            @Override
+            public void onAddToWorkspace(ir.limoo.driver.entity.Workspace workspace) {
+                try {
+                    workspace.getDefaultConversation().send(helpMsg);
                 } catch (LimooException e) {
                     logger.error("", e);
                 }
