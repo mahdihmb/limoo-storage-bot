@@ -39,11 +39,10 @@ public class LimooStorageBot {
     private static final String LINE_BREAKS_REGEX = "[\r\n]";
     private static final String SPACE = " ";
     private static final String BACK_QUOTE = "`";
-    private static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
+    private static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-]");
 
     private static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
     private static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "#";
-    private static final String HELP_PREFIX = "!";
     private static final String ADD_PREFIX = "+ ";
     private static final String REMOVE_PREFIX = "- ";
     private static final String LIST_PREFIX = "*";
@@ -67,6 +66,7 @@ public class LimooStorageBot {
         );
     }
 
+    @SuppressWarnings("unchecked")
     public void run() {
         limooDriver.addEventListener(new MessageCreatedEventListener() {
             @Override
@@ -101,14 +101,7 @@ public class LimooStorageBot {
                         dao = UserDAO.getInstance();
                     }
 
-                    if (command.isEmpty()) {
-                        handleHelp(message, conversation);
-                        return;
-                    }
-
-                    if (command.startsWith(HELP_PREFIX)) {
-                        handleHelp(message, conversation);
-                    } else if (command.startsWith(ADD_PREFIX)) {
+                    if (command.startsWith(ADD_PREFIX)) {
                         handleAdd(command, message, conversation, messageAssignmentsProvider, dao);
                     } else if (command.startsWith(REMOVE_PREFIX)) {
                         handleRemove(command, message, messageAssignmentsProvider, dao);
