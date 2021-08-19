@@ -55,7 +55,7 @@ public class LimooStorageBot {
 
     private static final int MAX_NAME_LEN = 200;
     private static final int TEXT_PREVIEW_LEN = 100;
-    private static final long ONE_DAY_MILLIS = 24 * 60 * 60 * 1000;
+    private static final long ONE_HOUR_MILLIS = 60 * 60 * 1000;
 
     private final LimooDriver limooDriver;
     private final String helpMsg;
@@ -145,7 +145,7 @@ public class LimooStorageBot {
                         }
 
                         long now = System.currentTimeMillis();
-                        if (reportConversation != null && now > lastTimeSentBugReport + ONE_DAY_MILLIS) {
+                        if (reportConversation != null && now > lastTimeSentBugReport + ONE_HOUR_MILLIS) {
                             try {
                                 String reportMsg = MessageService.get("reportTextForAdmin")
                                         + "\n```java\n"
