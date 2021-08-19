@@ -10,10 +10,10 @@
             <generator class="assigned"/>
         </id>
 
-        <map name="userMessageAssignmentsMap" cascade="all-delete-orphan" inverse="true">
+        <map name="messageAssignmentsMap" cascade="all-delete-orphan" inverse="true">
             <key column="userId"/>
             <map-key column="name" type="string"/>
-            <one-to-many class="ir.mahdihmb.limoo_storage_bot.entity.UserMessage"/>
+            <one-to-many class="ir.mahdihmb.limoo_storage_bot.entity.MessageAssignment$UserMessage"/>
         </map>
 
     </class>

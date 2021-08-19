@@ -10,10 +10,10 @@
             <generator class="assigned"/>
         </id>
 
-        <map name="workspaceMessageAssignmentsMap" cascade="all-delete-orphan" inverse="true">
+        <map name="messageAssignmentsMap" cascade="all-delete-orphan" inverse="true">
             <key column="workspaceId"/>
             <map-key column="name" type="string"/>
-            <one-to-many class="ir.mahdihmb.limoo_storage_bot.entity.WorkspaceMessage"/>
+            <one-to-many class="ir.mahdihmb.limoo_storage_bot.entity.MessageAssignment$WorkspaceMessage"/>
         </map>
 
     </class>

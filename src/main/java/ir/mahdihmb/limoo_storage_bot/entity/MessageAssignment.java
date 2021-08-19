@@ -2,19 +2,19 @@ package ir.mahdihmb.limoo_storage_bot.entity;
 
 import ir.limoo.driver.entity.Message;
 
-public class WorkspaceMessage {
+public class MessageAssignment<T> {
 
     private long id;
     private String name;
-    private Workspace workspace;
+    private T entity;
     private Message message;
 
-    public WorkspaceMessage() {
+    public MessageAssignment() {
     }
 
-    public WorkspaceMessage(String name, Workspace workspace, Message message) {
+    public MessageAssignment(String name, T entity, Message message) {
         this.name = name;
-        this.workspace = workspace;
+        this.entity = entity;
         this.message = message;
     }
 
@@ -34,12 +34,12 @@ public class WorkspaceMessage {
         this.name = name;
     }
 
-    public Workspace getWorkspace() {
-        return workspace;
+    public T getEntity() {
+        return entity;
     }
 
-    public void setWorkspace(Workspace workspace) {
-        this.workspace = workspace;
+    public void setEntity(T entity) {
+        this.entity = entity;
     }
 
     public Message getMessage() {
@@ -48,5 +48,11 @@ public class WorkspaceMessage {
 
     public void setMessage(Message message) {
         this.message = message;
+    }
+
+    public static class UserMessage extends MessageAssignment<User> {
+    }
+
+    public static class WorkspaceMessage extends MessageAssignment<Workspace> {
     }
 }

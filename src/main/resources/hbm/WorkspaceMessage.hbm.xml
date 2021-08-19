@@ -4,7 +4,7 @@
         "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 
 <hibernate-mapping>
-    <class name="ir.mahdihmb.limoo_storage_bot.entity.WorkspaceMessage" table="workspace_messages">
+    <class name="ir.mahdihmb.limoo_storage_bot.entity.MessageAssignment$WorkspaceMessage" table="workspace_messages">
 
         <id name="id" type="long">
             <generator class="increment"/>
@@ -13,7 +13,7 @@
         <property name="name" type="string" not-null="true"
                   unique-key="name_workspace_unique_key"/>
 
-        <many-to-one name="workspace" class="ir.mahdihmb.limoo_storage_bot.entity.Workspace"
+        <many-to-one name="entity" class="ir.mahdihmb.limoo_storage_bot.entity.Workspace"
                      column="workspaceId" not-null="true"
                      unique-key="name_workspace_unique_key"/>
         <many-to-one name="message" class="ir.limoo.driver.entity.Message"
