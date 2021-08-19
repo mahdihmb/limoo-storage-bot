@@ -23,34 +23,38 @@ public class BaseDAO<T extends IdProvider> {
         this.persistentClass = persistentClass;
     }
 
-    protected Object doTransaction(CheckedFunction<Session, ?> action) {
+    protected Object doTransaction(CheckedFunction<Session, ?> action) throws Throwable {
         Session session = HibernateSessionManager.getCurrentSession();
         Transaction tx = null;
-        Object result = null;
         try {
             tx = session.beginTransaction();
-            result = action.apply(session);
+            Object result = action.apply(session);
             tx.commit();
-        } catch (Exception e) {
-            if (tx != null)
-                tx.rollback();
-            logger.error("", e);
+            return result;
+        } catch (Throwable throwable) {
+            if (tx != null) {
+                try {
+                    tx.rollback();
+                } catch (Throwable t) {
+                    logger.error("", t);
+                }
+            }
+            throw throwable;
         }
-        return result;
     }
 
-    public Serializable add(T entity) {
+    public Serializable add(T entity) throws Throwable {
         return (Serializable) doTransaction((session) -> session.save(entity));
     }
 
-    public void update(T entity){
+    public void update(T entity) throws Throwable {
         doTransaction((session) -> {
             session.update(entity);
             return null;
         });
     }
 
-    public void delete(Serializable id){
+    public void delete(Serializable id) throws Throwable {
         doTransaction((session) -> {
             session.delete(session.get(persistentClass, id));
             return null;
@@ -58,12 +62,12 @@ public class BaseDAO<T extends IdProvider> {
     }
 
     @SuppressWarnings({"unchecked"})
-    public T get(Serializable id) {
+    public T get(Serializable id) throws Throwable {
         return (T) doTransaction((session) -> session.get(persistentClass, id));
     }
 
     @SuppressWarnings({"unchecked"})
-    public List<T> list() {
+    public List<T> list() throws Throwable {
         return (List<T>) doTransaction((session) -> {
             CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
             CriteriaQuery<T> criteriaQuery = criteriaBuilder.createQuery(persistentClass);
@@ -74,7 +78,7 @@ public class BaseDAO<T extends IdProvider> {
     }
 
     @SuppressWarnings({"unchecked"})
-    public T getOrCreate(Serializable id) {
+    public T getOrCreate(Serializable id) throws Throwable {
         return (T) doTransaction((session) -> {
             final T existingEntity = session.get(persistentClass, id);
             if (existingEntity != null)
@@ -89,6 +93,6 @@ public class BaseDAO<T extends IdProvider> {
 
     @FunctionalInterface
     private interface CheckedFunction<T, R> {
-        R apply(T t) throws Exception;
+        R apply(T t) throws Throwable;
     }
 }

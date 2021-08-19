@@ -21,7 +21,7 @@ public class ConfigService {
     private ConfigService() {
     }
 
-    protected static void init() {
+    protected static void init() throws ConfigurationException {
         PropertiesConfiguration defaultPropConfig = new PropertiesConfiguration();
         FileHandler defaultConfigFileHandler = new FileHandler(defaultPropConfig);
         defaultConfigFileHandler.setFileName(CONFIG_PROPERTIES_FILE);
@@ -31,7 +31,7 @@ public class ConfigService {
             defaultConfig = defaultPropConfig.interpolatedConfiguration();
         } catch (ConfigurationException e) {
             logger.error("Can't get config properties from " + CONFIG_PROPERTIES_FILE, e);
-            return;
+            throw e;
         }
 
         String envName = defaultConfig.getString("config.environmentVariableName");

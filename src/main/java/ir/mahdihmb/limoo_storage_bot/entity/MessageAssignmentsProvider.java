@@ -9,10 +9,12 @@ public abstract class MessageAssignmentsProvider<T> implements IdProvider {
     private Serializable id;
     private Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap;
 
+    @Override
     public Serializable getId() {
         return id;
     }
 
+    @Override
     public void setId(Serializable id) {
         this.id = id;
     }

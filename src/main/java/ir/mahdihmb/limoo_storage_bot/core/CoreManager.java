@@ -10,8 +10,8 @@ public class CoreManager {
             HibernateSessionManager.init();
             FlywayManager.init();
             FlywayManager.migrate();
-        } catch (Throwable tx) {
-            throw new ExceptionInInitializerError(tx);
+        } catch (Throwable throwable) {
+            throw new ExceptionInInitializerError(throwable);
         }
     }
 
@@ -20,8 +20,8 @@ public class CoreManager {
             ConfigService.init();
             DataSourceManager.init();
             FlywayManager.init();
-        } catch (Throwable tx) {
-            throw new ExceptionInInitializerError(tx);
+        } catch (Throwable throwable) {
+            throw new ExceptionInInitializerError(throwable);
         }
     }
 

@@ -20,6 +20,7 @@ import ir.mahdihmb.limoo_storage_bot.entity.User;
 import ir.mahdihmb.limoo_storage_bot.entity.Workspace;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
 import org.hibernate.Hibernate;
+import org.hibernate.HibernateException;
 import org.hibernate.proxy.HibernateProxy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,9 +55,12 @@ public class LimooStorageBot {
 
     private static final int MAX_NAME_LEN = 200;
     private static final int TEXT_PREVIEW_LEN = 100;
+    private static final long ONE_DAY_MILLIS = 24 * 60 * 60 * 1000;
 
     private final LimooDriver limooDriver;
     private final String helpMsg;
+    private Conversation reportConversation;
+    private long lastTimeSentBugReport = 0;
 
     public LimooStorageBot(String limooUrl, String botUsername, String botPassword) throws LimooException {
         limooDriver = new LimooDriver(limooUrl, botUsername, botPassword);
@@ -65,6 +69,19 @@ public class LimooStorageBot {
                 limooDriver.getBot().getDisplayName(),
                 ConfigService.get("repo.address")
         );
+        try {
+            String reportWorkspaceKey = ConfigService.get("admin.reportWorkspaceKey");
+            String reportConversationId = ConfigService.get("admin.reportConversationId");
+            if (reportWorkspaceKey != null && !reportWorkspaceKey.isEmpty()
+                    && reportConversationId != null && !reportConversationId.isEmpty()) {
+                ir.limoo.driver.entity.Workspace reportWorkspace = limooDriver.getWorkspaceByKey(reportWorkspaceKey);
+                if (reportWorkspace != null) {
+                    reportConversation = reportWorkspace.getConversationById(reportConversationId);
+                }
+            }
+        } catch (Throwable throwable) {
+            logger.error("", throwable);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -118,8 +135,31 @@ public class LimooStorageBot {
                     } else {
                         handleGet(command, message, conversation, msgPrefix, messageAssignmentsProvider);
                     }
-                } catch (LimooException e) {
-                    logger.error("", e);
+                } catch (Throwable throwable) {
+                    logger.error("", throwable);
+                    if (throwable instanceof HibernateException) {
+                        try {
+                            message.sendInThread(MessageService.get("reportTextForUser"));
+                        } catch (LimooException e) {
+                            logger.error("", e);
+                        }
+
+                        long now = System.currentTimeMillis();
+                        if (reportConversation != null && now > lastTimeSentBugReport + ONE_DAY_MILLIS) {
+                            try {
+                                String reportMsg = MessageService.get("reportTextForAdmin")
+                                        + "\n```java\n"
+                                        + throwable.getClass().getName()
+                                        + ": "
+                                        + throwable.getMessage()
+                                        + "\n```";
+                                reportConversation.send(reportMsg);
+                            } catch (LimooException e) {
+                                logger.error("", e);
+                            }
+                            lastTimeSentBugReport = now;
+                        }
+                    }
                 } finally {
                     HibernateSessionManager.closeCurrentSession();
                     conversation.viewLog();
@@ -159,7 +199,7 @@ public class LimooStorageBot {
 
     private <T> void handleAdd(String command, Message message, Conversation conversation, String msgPrefix,
                                MessageAssignmentsProvider<T> messageAssignmentsProvider,
-                               BaseDAO<MessageAssignmentsProvider<T>> dao) throws LimooException {
+                               BaseDAO<MessageAssignmentsProvider<T>> dao) throws Throwable {
         String content = command.substring(ADD_PREFIX.length()).trim();
         if (content.isEmpty()) {
             message.sendInThread(MessageService.get("badAddCommand"));
@@ -253,7 +293,7 @@ public class LimooStorageBot {
 
     private <T> void handleRemove(String command, Message message, String msgPrefix,
                                   MessageAssignmentsProvider<T> messageAssignmentsProvider,
-                                  BaseDAO<MessageAssignmentsProvider<T>> dao) throws LimooException {
+                                  BaseDAO<MessageAssignmentsProvider<T>> dao) throws Throwable {
         String name = command.substring(REMOVE_PREFIX.length()).trim();
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
