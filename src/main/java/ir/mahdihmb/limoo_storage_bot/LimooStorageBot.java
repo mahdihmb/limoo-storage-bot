@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class LimooStorageBot {
@@ -33,18 +34,19 @@ public class LimooStorageBot {
     private static final transient Logger logger = LoggerFactory.getLogger(LimooStorageBot.class);
 
     private static final String PERSIAN_QUESTION_MARK = MessageService.get("questionMark");
-    private static final String PERSIAN_COMMA_MARK = MessageService.get("commaMark");
+    private static final String COMMA_MARK = ",";
     private static final String LINE_BREAK = "\n";
     private static final String LINE_BREAKS_REGEX = "[\r\n]";
     private static final String SPACE = " ";
     private static final String BACK_QUOTE = "`";
+    private static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
 
     private static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
-    private static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "*";
+    private static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "#";
     private static final String HELP_PREFIX = "!";
     private static final String ADD_PREFIX = "+ ";
     private static final String REMOVE_PREFIX = "- ";
-    private static final String LIST_PREFIX = ".";
+    private static final String LIST_PREFIX = "*";
     private static final String UNIQUE_RES_SEARCH_PREFIX = "? ";
     private static final String UNIQUE_RES_SEARCH_PREFIX_PERSIAN = String.format("%s ", PERSIAN_QUESTION_MARK);
     private static final String LIST_RES_SEARCH_PREFIX = "?? ";
@@ -181,6 +183,9 @@ public class LimooStorageBot {
         } else if (name.length() > MAX_NAME_LEN) {
             message.sendInThread(String.format(MessageService.get("tooLongName"), MAX_NAME_LEN));
             return;
+        } else if (ILLEGAL_NAME_PATTERN.matcher(name).matches()) {
+            message.sendInThread(MessageService.get("illegalName"));
+            return;
         }
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
@@ -271,7 +276,7 @@ public class LimooStorageBot {
                 StringBuilder fileNamesBuilder = new StringBuilder();
                 for (int i = 0; i < fileInfos.size(); i++) {
                     if (i > 0)
-                        fileNamesBuilder.append(PERSIAN_COMMA_MARK).append(SPACE);
+                        fileNamesBuilder.append(COMMA_MARK).append(SPACE);
                     fileNamesBuilder.append(fileInfos.get(i).getName());
                 }
                 String fileNames = fileNamesBuilder.toString().replaceAll(BACK_QUOTE, "");
