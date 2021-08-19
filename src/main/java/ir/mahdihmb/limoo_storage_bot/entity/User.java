@@ -6,7 +6,7 @@ import java.util.Map;
 public class User {
 
     private String id;
-    private Map<String, UserMessage> userMessagesAssignments;
+    private Map<String, UserMessage> userMessageAssignmentsMap;
 
     public User() {
     }
@@ -23,26 +23,26 @@ public class User {
         this.id = id;
     }
 
-    public Map<String, UserMessage> getUserMessagesAssignments() {
-        return userMessagesAssignments;
+    public Map<String, UserMessage> getUserMessageAssignmentsMap() {
+        return userMessageAssignmentsMap;
     }
 
-    public void setUserMessagesAssignments(Map<String, UserMessage> userMessagesAssignments) {
-        this.userMessagesAssignments = userMessagesAssignments;
+    public void setUserMessageAssignmentsMap(Map<String, UserMessage> userMessageAssignmentsMap) {
+        this.userMessageAssignmentsMap = userMessageAssignmentsMap;
     }
 
-    public Map<String, UserMessage> getCreatedUserMessagesAssignments() {
-        if (userMessagesAssignments == null)
-            userMessagesAssignments = new HashMap<>();
-        return userMessagesAssignments;
+    public Map<String, UserMessage> getCreatedUserMessageAssignmentsMap() {
+        if (userMessageAssignmentsMap == null)
+            userMessageAssignmentsMap = new HashMap<>();
+        return userMessageAssignmentsMap;
     }
 
-    public void putInUserMessagesAssignments(String name, UserMessage userMessage) {
-        getCreatedUserMessagesAssignments().put(name, userMessage);
+    public void putInUserMessageAssignmentsMap(String name, UserMessage userMessage) {
+        getCreatedUserMessageAssignmentsMap().put(name, userMessage);
     }
 
-    public void removeFromUserMessagesAssignments(String name) {
-        if (userMessagesAssignments != null)
-            userMessagesAssignments.remove(name);
+    public void removeFromUserMessageAssignmentsMap(String name) {
+        if (userMessageAssignmentsMap != null)
+            userMessageAssignmentsMap.remove(name);
     }
 }

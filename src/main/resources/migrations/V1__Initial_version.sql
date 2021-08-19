@@ -44,3 +44,23 @@ create table user_messages
     foreign key (userId) references users (id),
     foreign key (messageId) references messages (id)
 );
+
+drop table if exists workspaces cascade;
+create table workspaces
+(
+    id varchar(255) not null,
+    primary key (id)
+);
+
+drop table if exists workspace_messages cascade;
+create table workspace_messages
+(
+    id        bigint       not null,
+    name      varchar(255) not null,
+    workspaceId    varchar(255) not null,
+    messageId varchar(255) not null,
+    primary key (id),
+    unique (name, workspaceId),
+    foreign key (workspaceId) references workspaces (id),
+    foreign key (messageId) references messages (id)
+);

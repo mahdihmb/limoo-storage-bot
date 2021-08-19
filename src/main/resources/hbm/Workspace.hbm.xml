@@ -4,16 +4,16 @@
         "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 
 <hibernate-mapping>
-    <class name="ir.mahdihmb.limoo_storage_bot.entity.User" table="users">
+    <class name="ir.mahdihmb.limoo_storage_bot.entity.Workspace" table="workspaces">
 
         <id name="id" type="string">
             <generator class="assigned"/>
         </id>
 
-        <map name="userMessageAssignmentsMap" cascade="all-delete-orphan" inverse="true">
-            <key column="userId"/>
+        <map name="workspaceMessageAssignmentsMap" cascade="all-delete-orphan" inverse="true">
+            <key column="workspaceId"/>
             <map-key column="name" type="string"/>
-            <one-to-many class="ir.mahdihmb.limoo_storage_bot.entity.UserMessage"/>
+            <one-to-many class="ir.mahdihmb.limoo_storage_bot.entity.WorkspaceMessage"/>
         </map>
 
     </class>
