@@ -91,28 +91,31 @@ public class LimooStorageBot {
                     String command;
                     MessageAssignmentsProvider<?> messageAssignmentsProvider;
                     BaseDAO dao;
+                    String msgPrefix;
                     if (msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
                         command = msgText.substring((WORKSPACE_COMMAND_PREFIX + SPACE).length()).trim();
                         messageAssignmentsProvider = workspace;
                         dao = WorkspaceDAO.getInstance();
+                        msgPrefix = MessageService.get("workspaceListIndicator") + SPACE;
                     } else {
                         command = msgText.substring((COMMAND_PREFIX + SPACE).length()).trim();
                         messageAssignmentsProvider = user;
                         dao = UserDAO.getInstance();
+                        msgPrefix = "";
                     }
 
                     if (command.startsWith(ADD_PREFIX)) {
-                        handleAdd(command, message, conversation, messageAssignmentsProvider, dao);
+                        handleAdd(command, message, conversation, msgPrefix, messageAssignmentsProvider, dao);
                     } else if (command.startsWith(REMOVE_PREFIX)) {
-                        handleRemove(command, message, messageAssignmentsProvider, dao);
+                        handleRemove(command, message, msgPrefix, messageAssignmentsProvider, dao);
                     } else if (command.startsWith(LIST_PREFIX)) {
-                        handleList(message, conversation, messageAssignmentsProvider);
+                        handleList(message, conversation, msgPrefix, messageAssignmentsProvider);
                     } else if (command.startsWith(UNIQUE_RES_SEARCH_PREFIX) || command.startsWith(UNIQUE_RES_SEARCH_PREFIX_PERSIAN)) {
-                        handleUniqueResSearch(command, message, conversation, messageAssignmentsProvider);
+                        handleUniqueResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider);
                     } else if (command.startsWith(LIST_RES_SEARCH_PREFIX) || command.startsWith(LIST_RES_SEARCH_PREFIX_PERSIAN)) {
-                        handleListResSearch(command, message, conversation, messageAssignmentsProvider);
+                        handleListResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider);
                     } else {
-                        handleGet(command, message, conversation, messageAssignmentsProvider);
+                        handleGet(command, message, conversation, msgPrefix, messageAssignmentsProvider);
                     }
                 } catch (LimooException e) {
                     logger.error("", e);
@@ -142,7 +145,7 @@ public class LimooStorageBot {
             message.sendInThread(helpMsg);
     }
 
-    private <T> void handleAdd(String command, Message message, Conversation conversation,
+    private <T> void handleAdd(String command, Message message, Conversation conversation, String msgPrefix,
                                MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                BaseDAO<MessageAssignmentsProvider<T>> dao) throws LimooException {
         String content = command.substring(ADD_PREFIX.length()).trim();
@@ -184,7 +187,7 @@ public class LimooStorageBot {
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(MessageService.get("nameExists"));
+            message.sendInThread(msgPrefix + MessageService.get("nameExists"));
             return;
         }
 
@@ -204,15 +207,21 @@ public class LimooStorageBot {
         msg.setId(messageId);
         messageAssignmentsProvider.putInMessageAssignmentsMap(name, new MessageAssignment<>(name, messageAssignmentsProvider, msg));
         dao.update(messageAssignmentsProvider);
-        message.sendInThread(MessageService.get("messageAdded"));
+        message.sendInThread(msgPrefix + MessageService.get("messageAdded"));
     }
 
-    private <T> void handleGet(String name, Message message, Conversation conversation,
+    private <T> void handleGet(String name, Message message, Conversation conversation, String msgPrefix,
                                MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
+
+        if (messageAssignmentsMap.isEmpty()) {
+            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
+            return;
+        }
+
         if (!messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(MessageService.get("noSuchMessage"));
+            message.sendInThread(msgPrefix + MessageService.get("noSuchMessage"));
             return;
         }
 
@@ -230,24 +239,30 @@ public class LimooStorageBot {
             message.sendInThread(messageBuilder);
     }
 
-    private <T> void handleRemove(String command, Message message,
+    private <T> void handleRemove(String command, Message message, String msgPrefix,
                                   MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                   BaseDAO<MessageAssignmentsProvider<T>> dao) throws LimooException {
         String name = command.substring(REMOVE_PREFIX.length()).trim();
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
+
+        if (messageAssignmentsMap.isEmpty()) {
+            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
+            return;
+        }
+
         if (!messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(MessageService.get("noSuchMessage"));
+            message.sendInThread(msgPrefix + MessageService.get("noSuchMessage"));
             return;
         }
 
         messageAssignmentsProvider.removeFromMessageAssignmentsMap(name);
         dao.update(messageAssignmentsProvider);
-        message.sendInThread(MessageService.get("messageRemoved"));
+        message.sendInThread(msgPrefix + MessageService.get("messageRemoved"));
     }
 
     private <T> String generateMessagesListText(Map<String, MessageAssignment<T>> messageAssignmentsMap) {
-        StringBuilder listText = new StringBuilder(MessageService.get("messagesList"));
+        StringBuilder listText = new StringBuilder();
         for (String name : messageAssignmentsMap.keySet()) {
             Message msg = messageAssignmentsMap.get(name).getMessage();
             if (msg instanceof HibernateProxy)
@@ -279,16 +294,17 @@ public class LimooStorageBot {
         return listText.toString();
     }
 
-    private <T> void handleList(Message message, Conversation conversation,
+    private <T> void handleList(Message message, Conversation conversation, String msgPrefix,
                                 MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.isEmpty()) {
-            message.sendInThread(MessageService.get("dontHaveAnyMessages"));
+            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
             return;
         }
 
-        String sendingText = generateMessagesListText(messageAssignmentsMap);
+        String sendingText = msgPrefix + MessageService.get("messagesList")
+                + generateMessagesListText(messageAssignmentsMap);
 
         if (message.getThreadRootId() == null)
             conversation.send(sendingText);
@@ -296,12 +312,12 @@ public class LimooStorageBot {
             message.sendInThread(sendingText);
     }
 
-    private <T> void handleUniqueResSearch(String command, Message message, Conversation conversation,
+    private <T> void handleUniqueResSearch(String command, Message message, Conversation conversation, String msgPrefix,
                                            MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.isEmpty()) {
-            message.sendInThread(MessageService.get("dontHaveAnyMessages"));
+            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
             return;
         }
 
@@ -310,7 +326,7 @@ public class LimooStorageBot {
                 .filter(name -> name.toLowerCase().contains(term.toLowerCase()))
                 .findAny().orElse(null);
         if (foundName == null) {
-            message.sendInThread(MessageService.get("noMatches"));
+            message.sendInThread(msgPrefix + MessageService.get("noMatches"));
             return;
         }
 
@@ -328,12 +344,12 @@ public class LimooStorageBot {
             message.sendInThread(messageBuilder);
     }
 
-    private <T> void handleListResSearch(String command, Message message, Conversation conversation,
+    private <T> void handleListResSearch(String command, Message message, Conversation conversation, String msgPrefix,
                                          MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.isEmpty()) {
-            message.sendInThread(MessageService.get("dontHaveAnyMessages"));
+            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
             return;
         }
 
@@ -342,7 +358,7 @@ public class LimooStorageBot {
                 .filter(name -> name.toLowerCase().contains(term.toLowerCase()))
                 .collect(Collectors.toList());
         if (foundNames.isEmpty()) {
-            message.sendInThread(MessageService.get("noMatches"));
+            message.sendInThread(msgPrefix + MessageService.get("noMatches"));
             return;
         }
 
@@ -351,7 +367,8 @@ public class LimooStorageBot {
             filteredMessageAssignmentsMap.put(foundName, messageAssignmentsMap.get(foundName));
         }
 
-        String sendingText = generateMessagesListText(filteredMessageAssignmentsMap);
+        String sendingText = msgPrefix + MessageService.get("filteredMessagesList")
+                + generateMessagesListText(filteredMessageAssignmentsMap);
 
         if (message.getThreadRootId() == null)
             conversation.send(sendingText);
