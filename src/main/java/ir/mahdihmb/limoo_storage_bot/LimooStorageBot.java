@@ -34,15 +34,18 @@ public class LimooStorageBot {
     private static final String LINE_BREAKS_REGEX = "[\r\n]";
     private static final String SPACE = " ";
     private static final String BACK_QUOTE = "`";
+
     private static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
+    private static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "*";
     private static final String HELP_PREFIX = "!";
     private static final String ADD_PREFIX = "+ ";
     private static final String REMOVE_PREFIX = "- ";
-    private static final String LIST_PREFIX = "*";
+    private static final String LIST_PREFIX = ".";
     private static final String UNIQUE_RES_SEARCH_PREFIX = "? ";
     private static final String UNIQUE_RES_SEARCH_PREFIX_PERSIAN = String.format("%s ", PERSIAN_QUESTION_MARK);
     private static final String LIST_RES_SEARCH_PREFIX = "?? ";
     private static final String LIST_RES_SEARCH_PREFIX_PERSIAN = String.format("%1$s%1$s ", PERSIAN_QUESTION_MARK);
+
     private static final int MAX_NAME_LEN = 200;
     private static final int TEXT_PREVIEW_LEN = 100;
 
@@ -64,19 +67,30 @@ public class LimooStorageBot {
             public void onNewMessage(Message message, Conversation conversation) {
                 try {
                     String msgText = message.getText().trim();
-                    if (!msgText.equals(COMMAND_PREFIX) && !msgText.startsWith(COMMAND_PREFIX + SPACE)) {
+                    if (!msgText.equals(COMMAND_PREFIX) && !msgText.startsWith(COMMAND_PREFIX + SPACE)
+                            && !msgText.equals(WORKSPACE_COMMAND_PREFIX)
+                            && !msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
                         return;
                     }
 
                     HibernateSessionManager.openSession();
                     User user = UserDAO.getInstance().getOrCreate(message.getUserId());
 
-                    if (msgText.equals(COMMAND_PREFIX)) {
+                    if (msgText.equals(COMMAND_PREFIX) || msgText.equals(WORKSPACE_COMMAND_PREFIX)) {
                         handleHelp(message, conversation);
                         return;
                     }
 
-                    String command = msgText.substring((COMMAND_PREFIX + SPACE).length()).trim();
+                    String command;
+                    boolean isWorkspaceCommand;
+                    if (msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
+                        command = msgText.substring((WORKSPACE_COMMAND_PREFIX + SPACE).length()).trim();
+                        isWorkspaceCommand = true;
+                    } else {
+                        command = msgText.substring((COMMAND_PREFIX + SPACE).length()).trim();
+                        isWorkspaceCommand = false;
+                    }
+
                     if (command.isEmpty()) {
                         handleHelp(message, conversation);
                         return;
@@ -85,17 +99,23 @@ public class LimooStorageBot {
                     if (command.startsWith(HELP_PREFIX)) {
                         handleHelp(message, conversation);
                     } else if (command.startsWith(ADD_PREFIX)) {
-                        handleAdd(command, message, conversation, user);
+                        if (!isWorkspaceCommand)
+                            handleAddForUser(command, message, conversation, user);
                     } else if (command.startsWith(REMOVE_PREFIX)) {
-                        handleRemove(command, message, user);
+                        if (!isWorkspaceCommand)
+                            handleRemoveForUser(command, message, user);
                     } else if (command.startsWith(LIST_PREFIX)) {
-                        handleList(message, conversation, user);
+                        if (!isWorkspaceCommand)
+                            handleListForUser(message, conversation, user);
                     } else if (command.startsWith(UNIQUE_RES_SEARCH_PREFIX) || command.startsWith(UNIQUE_RES_SEARCH_PREFIX_PERSIAN)) {
-                        handleUniqueResSearch(command, message, conversation, user);
+                        if (!isWorkspaceCommand)
+                            handleUniqueResSearchForUser(command, message, conversation, user);
                     } else if (command.startsWith(LIST_RES_SEARCH_PREFIX) || command.startsWith(LIST_RES_SEARCH_PREFIX_PERSIAN)) {
-                        handleListResSearch(command, message, conversation, user);
+                        if (!isWorkspaceCommand)
+                            handleListResSearchForUser(command, message, conversation, user);
                     } else {
-                        handleGet(command, message, conversation, user);
+                        if (!isWorkspaceCommand)
+                            handleGetForUser(command, message, conversation, user);
                     }
                 } catch (LimooException e) {
                     logger.error("", e);
@@ -125,7 +145,7 @@ public class LimooStorageBot {
             message.sendInThread(helpMsg);
     }
 
-    private void handleAdd(String command, Message message, Conversation conversation, User user) throws LimooException {
+    private void handleAddForUser(String command, Message message, Conversation conversation, User user) throws LimooException {
         String content = command.substring(ADD_PREFIX.length()).trim();
         if (content.isEmpty()) {
             message.sendInThread(MessageService.get("badAddCommand"));
@@ -184,7 +204,7 @@ public class LimooStorageBot {
         message.sendInThread(MessageService.get("messageAdded"));
     }
 
-    private void handleGet(String name, Message message, Conversation conversation, User user) throws LimooException {
+    private void handleGetForUser(String name, Message message, Conversation conversation, User user) throws LimooException {
         final Map<String, UserMessage> userMessagesAssignments = user.getCreatedUserMessagesAssignments();
         if (!userMessagesAssignments.containsKey(name)) {
             message.sendInThread(MessageService.get("noSuchMessage"));
@@ -205,7 +225,7 @@ public class LimooStorageBot {
             message.sendInThread(messageBuilder);
     }
 
-    private void handleRemove(String command, Message message, User user) throws LimooException {
+    private void handleRemoveForUser(String command, Message message, User user) throws LimooException {
         String name = command.substring(REMOVE_PREFIX.length()).trim();
         final Map<String, UserMessage> userMessagesAssignments = user.getCreatedUserMessagesAssignments();
         if (!userMessagesAssignments.containsKey(name)) {
@@ -251,7 +271,7 @@ public class LimooStorageBot {
         return listText.toString();
     }
 
-    private void handleList(Message message, Conversation conversation, User user) throws LimooException {
+    private void handleListForUser(Message message, Conversation conversation, User user) throws LimooException {
         final Map<String, UserMessage> userMessagesAssignments = user.getCreatedUserMessagesAssignments();
         if (userMessagesAssignments.isEmpty()) {
             message.sendInThread(MessageService.get("dontHaveAnyMessages"));
@@ -266,7 +286,7 @@ public class LimooStorageBot {
             message.sendInThread(sendingText);
     }
 
-    private void handleUniqueResSearch(String command, Message message, Conversation conversation, User user) throws LimooException {
+    private void handleUniqueResSearchForUser(String command, Message message, Conversation conversation, User user) throws LimooException {
         final Map<String, UserMessage> userMessagesAssignments = user.getCreatedUserMessagesAssignments();
         if (userMessagesAssignments.isEmpty()) {
             message.sendInThread(MessageService.get("dontHaveAnyMessages"));
@@ -296,14 +316,14 @@ public class LimooStorageBot {
             message.sendInThread(messageBuilder);
     }
 
-    private void handleListResSearch(String command, Message message, Conversation conversation, User user) throws LimooException {
+    private void handleListResSearchForUser(String command, Message message, Conversation conversation, User user) throws LimooException {
         final Map<String, UserMessage> userMessagesAssignments = user.getCreatedUserMessagesAssignments();
         if (userMessagesAssignments.isEmpty()) {
             message.sendInThread(MessageService.get("dontHaveAnyMessages"));
             return;
         }
 
-        String term = command.substring(UNIQUE_RES_SEARCH_PREFIX.length()).trim();
+        String term = command.substring(LIST_RES_SEARCH_PREFIX.length()).trim();
         List<String> foundNames = userMessagesAssignments.keySet().stream()
                 .filter(name -> name.toLowerCase().contains(term.toLowerCase()))
                 .collect(Collectors.toList());
