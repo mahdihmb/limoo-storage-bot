@@ -210,10 +210,10 @@ public class LimooStorageBot {
                         long now = System.currentTimeMillis();
                         if (reportConversation != null && now > lastTimeSentBugReport + ONE_HOUR_MILLIS) {
                             try {
-                                String reportMsg = MessageService.get("bugReportTextForAdmin")
-                                        + "\n```java\n"
-                                        + getMessageOfThrowable(throwable)
-                                        + "\n```";
+                                String reportMsg = MessageService.get("bugReportTextForAdmin") + LINE_BREAK
+                                        + "```java" + LINE_BREAK
+                                        + getMessageOfThrowable(throwable) + LINE_BREAK
+                                        + "```";
                                 reportConversation.send(reportMsg);
                             } catch (LimooException e) {
                                 logger.error("", e);
@@ -385,7 +385,7 @@ public class LimooStorageBot {
         ir.limoo.driver.entity.User user = RequestUtils.getUser(message.getWorkspace(), message.getUserId());
         String userDisplayName = user != null ? user.getDisplayName() : MessageService.get("unknownUser");
         String reportMsg = String.format(MessageService.get("feedbackReportTextForAdmin"), userDisplayName)
-                + "\n" + feedbackText;
+                + LINE_BREAK + feedbackText;
         Message.Builder messageBuilder = new Message.Builder()
                 .text(reportMsg)
                 .fileInfos(fileInfos);
@@ -527,14 +527,13 @@ public class LimooStorageBot {
             };
 
             try {
-                String[] args = new String[] {"/bin/bash", "-c", restartPostgresCommand};
-                Process process = new ProcessBuilder(args).start();
+                Process process = new ProcessBuilder(restartPostgresCommand).start();
 
                 StringBuilder output = new StringBuilder();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
+                    output.append(line).append(LINE_BREAK);
                 }
 
                 try {
@@ -543,13 +542,13 @@ public class LimooStorageBot {
                         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
                         message.sendInThread(output.toString());
                     } else {
-                        onError.apply("Process exited with non zero value");
+                        onError.apply(MessageService.get("errorRunningProcess"));
                     }
                 } catch (InterruptedException e) {
-                    onError.apply(getMessageOfThrowable(e));
+                    onError.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```");
                 }
             } catch (IOException e) {
-                onError.apply(getMessageOfThrowable(e));
+                onError.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```");
             }
         } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
             // TODO
