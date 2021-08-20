@@ -91,8 +91,13 @@ public class LimooStorageBot {
             public void onNewMessage(Message message, Conversation conversation) {
                 try {
                     String msgText = message.getText().trim();
-                    if (!msgText.equals(COMMAND_PREFIX) && !msgText.startsWith(COMMAND_PREFIX + SPACE)
-                            && !msgText.equals(WORKSPACE_COMMAND_PREFIX)
+                    if (msgText.equals("@" + limooDriver.getBot().getUsername())
+                            || msgText.equals(COMMAND_PREFIX) || msgText.equals(WORKSPACE_COMMAND_PREFIX)) {
+                        handleHelp(message, conversation);
+                        return;
+                    }
+
+                    if (!msgText.startsWith(COMMAND_PREFIX + SPACE)
                             && !msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
                         return;
                     }
@@ -100,11 +105,6 @@ public class LimooStorageBot {
                     HibernateSessionManager.openSession();
                     User user = UserDAO.getInstance().getOrCreate(message.getUserId());
                     Workspace workspace = WorkspaceDAO.getInstance().getOrCreate(message.getWorkspace().getId());
-
-                    if (msgText.equals(COMMAND_PREFIX) || msgText.equals(WORKSPACE_COMMAND_PREFIX)) {
-                        handleHelp(message, conversation);
-                        return;
-                    }
 
                     String command;
                     MessageAssignmentsProvider<?> messageAssignmentsProvider;
