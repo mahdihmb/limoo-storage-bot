@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.List;
@@ -519,11 +520,13 @@ public class LimooStorageBot {
             message.getWorkspace().getDefaultConversation().send(helpMsg);
             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
         } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
-            if (restartPostgresScriptFile == null)
+            if (restartPostgresScriptFile == null) {
+                message.sendInThread(MessageService.get("noScriptSpecified"));
                 return;
+            }
 
-            SendMessageConsumer onError = msg -> {
-                RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), DISLIKE_REACTION);
+            SendMessageWithReaction onResult = (msg, reaction) -> {
+                RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), reaction);
                 message.sendInThread(msg);
             };
 
@@ -532,27 +535,30 @@ public class LimooStorageBot {
                 processBuilder.command(restartPostgresScriptFile);
                 Process process = processBuilder.start();
 
-                StringBuilder output = new StringBuilder();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append(LINE_BREAK);
-                }
-
                 try {
-                    int exitVal = process.waitFor();
-                    if (exitVal == 0) {
+                    InputStream inputStream;
+                    String reaction;
+                    if (process.waitFor() == 0) {
                         CoreManager.reInitDatabaseInRuntime();
-                        RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
-                        message.sendInThread("```" + LINE_BREAK + output + LINE_BREAK + "```");
+                        inputStream = process.getInputStream();
+                        reaction = LIKE_REACTION;
                     } else {
-                        onError.apply(MessageService.get("errorRunningProcess"));
+                        inputStream = process.getErrorStream();
+                        reaction = DISLIKE_REACTION;
                     }
+
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                    StringBuilder output = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        output.append(line).append(LINE_BREAK);
+                    }
+                    onResult.apply("```" + LINE_BREAK + output + LINE_BREAK + "```", reaction);
                 } catch (InterruptedException e) {
-                    onError.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```");
+                    onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
                 }
             } catch (IOException e) {
-                onError.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```");
+                onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
             }
         } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
             // TODO
@@ -564,7 +570,7 @@ public class LimooStorageBot {
     }
 
     @FunctionalInterface
-    private interface SendMessageConsumer {
-        void apply(String t) throws LimooException;
+    private interface SendMessageWithReaction {
+        void apply(String msg, String reaction) throws LimooException;
     }
 }
