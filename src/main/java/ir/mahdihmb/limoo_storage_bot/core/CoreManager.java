@@ -1,6 +1,11 @@
 package ir.mahdihmb.limoo_storage_bot.core;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class CoreManager {
+
+    private static final transient Logger logger = LoggerFactory.getLogger(CoreManager.class);
 
     public static void initApp() {
         try {
@@ -25,10 +30,12 @@ public class CoreManager {
         }
     }
 
-    public static void initDatabaseInRuntime() {
+    public static void reInitDatabaseInRuntime() {
         try {
+            logger.info("------- Reinitializing database -------");
             DataSourceManager.init();
             HibernateSessionManager.init();
+            logger.info("------- Database reinitialized! -------");
         } catch (Throwable throwable) {
             throw new ExceptionInInitializerError(throwable);
         }

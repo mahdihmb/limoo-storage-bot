@@ -542,7 +542,7 @@ public class LimooStorageBot {
                 try {
                     int exitVal = process.waitFor();
                     if (exitVal == 0) {
-                        CoreManager.initDatabaseInRuntime();
+                        CoreManager.reInitDatabaseInRuntime();
                         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
                         message.sendInThread("```" + LINE_BREAK + output + LINE_BREAK + "```");
                     } else {
