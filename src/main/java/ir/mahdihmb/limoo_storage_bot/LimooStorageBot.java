@@ -41,12 +41,13 @@ public class LimooStorageBot {
     private static final String LINE_BREAKS_REGEX = "[\r\n]";
     private static final String SPACE = " ";
     private static final String BACK_QUOTE = "`";
-    private static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-]");
+    private static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
 
     private static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
     private static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "#";
     private static final String ADD_PREFIX = "+ ";
     private static final String REMOVE_PREFIX = "- ";
+    private static final String FEEDBACK_PREFIX = "!";
     private static final String LIST_PREFIX = "*";
     private static final String UNIQUE_RES_SEARCH_PREFIX = "? ";
     private static final String UNIQUE_RES_SEARCH_PREFIX_PERSIAN = String.format("%s ", PERSIAN_QUESTION_MARK);
@@ -126,6 +127,8 @@ public class LimooStorageBot {
                         handleAdd(command, message, conversation, msgPrefix, messageAssignmentsProvider, dao);
                     } else if (command.startsWith(REMOVE_PREFIX)) {
                         handleRemove(command, message, msgPrefix, messageAssignmentsProvider, dao);
+                    } else if (command.equals(FEEDBACK_PREFIX) || command.startsWith(FEEDBACK_PREFIX + SPACE)) {
+                        handleFeedback(command, message);
                     } else if (command.startsWith(LIST_PREFIX)) {
                         handleList(message, conversation, msgPrefix, messageAssignmentsProvider);
                     } else if (command.startsWith(UNIQUE_RES_SEARCH_PREFIX) || command.startsWith(UNIQUE_RES_SEARCH_PREFIX_PERSIAN)) {
@@ -139,7 +142,7 @@ public class LimooStorageBot {
                     logger.error("", throwable);
                     if (throwable instanceof HibernateException) {
                         try {
-                            message.sendInThread(MessageService.get("reportTextForUser"));
+                            message.sendInThread(MessageService.get("bugReportTextForUser"));
                         } catch (LimooException e) {
                             logger.error("", e);
                         }
@@ -147,7 +150,7 @@ public class LimooStorageBot {
                         long now = System.currentTimeMillis();
                         if (reportConversation != null && now > lastTimeSentBugReport + ONE_HOUR_MILLIS) {
                             try {
-                                String reportMsg = MessageService.get("reportTextForAdmin")
+                                String reportMsg = MessageService.get("bugReportTextForAdmin")
                                         + "\n```java\n"
                                         + throwable.getClass().getName()
                                         + ": "
@@ -311,6 +314,28 @@ public class LimooStorageBot {
         messageAssignmentsProvider.removeFromMessageAssignmentsMap(name);
         dao.update(messageAssignmentsProvider);
         message.sendInThread(msgPrefix + MessageService.get("messageRemoved"));
+    }
+
+    private <T> void handleFeedback(String command, Message message) throws Throwable {
+        String feedbackText = command.substring(FEEDBACK_PREFIX.length()).trim();
+        List<MessageFile> fileInfos = message.getCreatedFileInfos();
+        if (feedbackText.isEmpty() && fileInfos.isEmpty())
+            return;
+
+        if (reportConversation == null) {
+            message.sendInThread(MessageService.get("feedbackNotSupported"));
+            return;
+        }
+
+        ir.limoo.driver.entity.User user = RequestUtils.getUser(message.getWorkspace(), message.getUserId());
+        String userDisplayName = user != null ? user.getDisplayName() : MessageService.get("unknownUser");
+        String reportMsg = String.format(MessageService.get("feedbackReportTextForAdmin"), userDisplayName)
+                + "\n" + feedbackText;
+        Message.Builder messageBuilder = new Message.Builder()
+                .text(reportMsg)
+                .fileInfos(fileInfos);
+        reportConversation.send(messageBuilder);
+        message.sendInThread(MessageService.get("feedbackSent"));
     }
 
     private <T> String generateMessagesListText(Map<String, MessageAssignment<T>> messageAssignmentsMap) {
