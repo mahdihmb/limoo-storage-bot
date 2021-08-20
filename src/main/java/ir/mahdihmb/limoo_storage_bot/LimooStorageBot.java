@@ -65,6 +65,7 @@ public class LimooStorageBot {
     private static final String ADMIN_SEND_HELP_IN_LOBBY_COMMAND = MessageService.get("adminSendHelpInLobbyCommand");
     private static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminSendUpdateInLobbyCommandPrefix");
     private static final String ADMIN_RESTART_POSTGRESQL_COMMAND = MessageService.get("adminRestartPostgresqlCommand");
+    private static final String ADMIN_REPORT_COMMAND = MessageService.get("adminReportCommand");
 
     private static final int MAX_NAME_LEN = 200;
     private static final int TEXT_PREVIEW_LEN = 100;
@@ -515,7 +516,7 @@ public class LimooStorageBot {
             message.sendInThread(messageBuilder);
     }
 
-    private void handleAdminCommands(String command, Message message, Conversation conversation) throws LimooException {
+    private void handleAdminCommands(String command, Message message, Conversation conversation) throws Throwable {
         if (command.equals(ADMIN_SEND_HELP_IN_LOBBY_COMMAND)) {
             message.getWorkspace().getDefaultConversation().send(helpMsg);
             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
@@ -560,6 +561,31 @@ public class LimooStorageBot {
             } catch (IOException e) {
                 onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
             }
+        } else if (command.equals(ADMIN_REPORT_COMMAND)) {
+            HibernateSessionManager.openSession();
+            List<String> userIds = UserDAO.getInstance().list().stream()
+                    .map(user -> (String) user.getId())
+                    .collect(Collectors.toList());
+            StringBuilder report = new StringBuilder();
+            report.append(MessageService.get("users")).append(LINE_BREAK);
+            for (ir.limoo.driver.entity.User user : RequestUtils.getUsersByIds(message.getWorkspace(), userIds)) {
+                report.append("- ")
+                        .append(user.getDisplayName())
+                        .append(LINE_BREAK);
+            }
+
+            Map<String, ir.limoo.driver.entity.Workspace> workspaceIdsMap = new HashMap<>();
+            for (ir.limoo.driver.entity.Workspace workspace : limooDriver.getWorkspaces()) {
+                workspaceIdsMap.put(workspace.getId(), workspace);
+            }
+            report.append(MessageService.get("workspaces")).append(LINE_BREAK);
+            for (Workspace workspace : WorkspaceDAO.getInstance().list()) {
+                report.append("- ")
+                        .append(workspaceIdsMap.get((String) workspace.getId()).getDisplayName())
+                        .append(LINE_BREAK);
+            }
+
+            message.sendInThread(report.toString());
         } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
             // TODO
         }
