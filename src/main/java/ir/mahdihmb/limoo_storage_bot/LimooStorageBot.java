@@ -42,6 +42,7 @@ public class LimooStorageBot {
     private static final String SPACE = " ";
     private static final String BACK_QUOTE = "`";
     private static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
+    private static final String LIKE_REACTION = "+1";
 
     private static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
     private static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "#";
@@ -92,8 +93,33 @@ public class LimooStorageBot {
             public void onNewMessage(Message message, Conversation conversation) {
                 try {
                     String msgText = message.getText().trim();
-                    if (msgText.equals("@" + limooDriver.getBot().getUsername())
-                            || msgText.equals(COMMAND_PREFIX) || msgText.equals(WORKSPACE_COMMAND_PREFIX)) {
+
+                    if (msgText.equals("@" + limooDriver.getBot().getUsername())) {
+                        if (message.getThreadRootId() == null) {
+                            handleHelp(message, conversation);
+                            return;
+                        } else {
+                            RequestUtils.followThread(message.getWorkspace(), message.getThreadRootId());
+                            RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
+
+                            String directReplyMessageId = message.getDirectReplyMessageId();
+                            if (directReplyMessageId == null || directReplyMessageId.isEmpty()) {
+                                return;
+                            }
+
+                            Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), conversation.getId(), directReplyMessageId);
+                            if (directReplyMessage == null) {
+                                message.sendInThread(MessageService.get("noDirectReplyMessage"));
+                                return;
+                            }
+
+                            directReplyMessage.setWorkspace(message.getWorkspace());
+                            message = directReplyMessage;
+                            msgText = message.getText().trim();
+                        }
+                    }
+
+                    if (msgText.equals(COMMAND_PREFIX) || msgText.equals(WORKSPACE_COMMAND_PREFIX)) {
                         handleHelp(message, conversation);
                         return;
                     }

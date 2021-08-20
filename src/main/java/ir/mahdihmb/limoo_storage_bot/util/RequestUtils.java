@@ -17,7 +17,9 @@ public class RequestUtils {
     private static final transient Logger logger = LoggerFactory.getLogger(RequestUtils.class);
 
     private static final String GET_MESSAGE_URI_TEMPLATE = MessageUtils.MESSAGES_ROOT_URI_TEMPLATE + "/%s";
-    private static final String GET_USER_URI_TEMPLATE = "user/items//%s";
+    private static final String GET_USER_URI_TEMPLATE = "user/items/%s";
+    private static final String FOLLOW_THREAD_URI_TEMPLATE = "workspace/items/%s/thread/items/%s/follow";
+    private static final String REACT_URI_TEMPLATE = "workspace/items/%s/conversation/items/%s/message/items/%s/reaction/items/%s";
 
     public static Message getMessage(Workspace workspace, String conversationId, String messageId) throws LimooException {
         String uri = String.format(GET_MESSAGE_URI_TEMPLATE, workspace.getId(), conversationId, messageId);
@@ -39,5 +41,15 @@ public class RequestUtils {
             logger.error("", e);
             return null;
         }
+    }
+
+    public static void followThread(Workspace workspace, String threadRootId) throws LimooException {
+        String uri = String.format(FOLLOW_THREAD_URI_TEMPLATE, workspace.getId(), threadRootId);
+        workspace.getRequester().executeApiPost(uri, JacksonUtils.createEmptyObjectNode(), workspace.getWorker());
+    }
+
+    public static void reactToMessage(Workspace workspace, String conversationId, String messageId, String reaction) throws LimooException {
+        String uri = String.format(REACT_URI_TEMPLATE, workspace.getId(), conversationId, messageId, reaction);
+        workspace.getRequester().executeApiPost(uri, JacksonUtils.createEmptyObjectNode(), workspace.getWorker());
     }
 }
