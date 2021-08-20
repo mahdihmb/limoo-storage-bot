@@ -190,7 +190,7 @@ public class LimooStorageBot {
                         handleAdd(command, message, conversation, msgPrefix, messageAssignmentsProvider, dao);
                     } else if (command.startsWith(REMOVE_PREFIX)) {
                         handleRemove(command, message, msgPrefix, messageAssignmentsProvider, dao);
-                    } else if (command.equals(FEEDBACK_PREFIX) || command.startsWith(FEEDBACK_PREFIX + SPACE)) {
+                    } else if (command.startsWith(FEEDBACK_PREFIX)) {
                         handleFeedback(command, message);
                     } else if (command.startsWith(LIST_PREFIX)) {
                         handleList(message, conversation, msgPrefix, messageAssignmentsProvider);
@@ -198,7 +198,7 @@ public class LimooStorageBot {
                         handleUniqueResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider);
                     } else if (command.startsWith(LIST_RES_SEARCH_PREFIX) || command.startsWith(LIST_RES_SEARCH_PREFIX_PERSIAN)) {
                         handleListResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider);
-                    } else {
+                    } else if (!ILLEGAL_NAME_PATTERN.matcher(command).matches()) {
                         handleGet(command, message, conversation, msgPrefix, messageAssignmentsProvider);
                     }
                 } catch (Throwable throwable) {
