@@ -25,6 +25,9 @@ import org.hibernate.proxy.HibernateProxy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +46,7 @@ public class LimooStorageBot {
     private static final String BACK_QUOTE = "`";
     private static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
     private static final String LIKE_REACTION = "+1";
+    private static final String DISLIKE_REACTION = "-1";
 
     private static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
     private static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "#";
@@ -55,6 +59,11 @@ public class LimooStorageBot {
     private static final String LIST_RES_SEARCH_PREFIX = "?? ";
     private static final String LIST_RES_SEARCH_PREFIX_PERSIAN = String.format("%1$s%1$s ", PERSIAN_QUESTION_MARK);
 
+    private static final String ADMIN_COMMAND_PREFIX = MessageService.get("adminCommandPrefix");
+    private static final String ADMIN_SEND_HELP_IN_LOBBY_COMMAND = MessageService.get("adminSendHelpInLobbyCommand");
+    private static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminSendUpdateInLobbyCommandPrefix");
+    private static final String ADMIN_RESTART_POSTGRESQL_COMMAND = MessageService.get("adminRestartPostgresqlCommand");
+
     private static final int MAX_NAME_LEN = 200;
     private static final int TEXT_PREVIEW_LEN = 100;
     private static final long ONE_HOUR_MILLIS = 60 * 60 * 1000;
@@ -63,6 +72,8 @@ public class LimooStorageBot {
     private final String helpMsg;
     private Conversation reportConversation;
     private long lastTimeSentBugReport = 0;
+    private String adminUserId;
+    private String restartPostgresCommand;
 
     public LimooStorageBot(String limooUrl, String botUsername, String botPassword) throws LimooException {
         limooDriver = new LimooDriver(limooUrl, botUsername, botPassword);
@@ -71,6 +82,7 @@ public class LimooStorageBot {
                 limooDriver.getBot().getDisplayName(),
                 ConfigService.get("repo.address")
         );
+
         try {
             String reportWorkspaceKey = ConfigService.get("admin.reportWorkspaceKey");
             String reportConversationId = ConfigService.get("admin.reportConversationId");
@@ -84,6 +96,22 @@ public class LimooStorageBot {
         } catch (Throwable throwable) {
             logger.error("", throwable);
         }
+
+        try {
+            String userId = ConfigService.get("admin.userId");
+            if (!userId.isEmpty())
+                adminUserId = userId;
+        } catch (Throwable throwable) {
+            logger.error("", throwable);
+        }
+
+        try {
+            String command = ConfigService.get("admin.restartPostgresCommand");
+            if (!command.isEmpty())
+                restartPostgresCommand = command;
+        } catch (Throwable throwable) {
+            logger.error("", throwable);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -93,6 +121,12 @@ public class LimooStorageBot {
             public void onNewMessage(Message message, Conversation conversation) {
                 try {
                     String msgText = message.getText().trim();
+
+                    if (adminUserId != null && msgText.startsWith(ADMIN_COMMAND_PREFIX + SPACE)) {
+                        String command = msgText.substring((ADMIN_COMMAND_PREFIX + SPACE).length()).trim();
+                        handleAdminCommands(command, message, conversation);
+                        return;
+                    }
 
                     if (msgText.equals("@" + limooDriver.getBot().getUsername())) {
                         if (message.getThreadRootId() == null) {
@@ -178,9 +212,7 @@ public class LimooStorageBot {
                             try {
                                 String reportMsg = MessageService.get("bugReportTextForAdmin")
                                         + "\n```java\n"
-                                        + throwable.getClass().getName()
-                                        + ": "
-                                        + throwable.getMessage()
+                                        + getMessageOfThrowable(throwable)
                                         + "\n```";
                                 reportConversation.send(reportMsg);
                             } catch (LimooException e) {
@@ -479,5 +511,57 @@ public class LimooStorageBot {
             conversation.send(messageBuilder);
         else
             message.sendInThread(messageBuilder);
+    }
+
+    private void handleAdminCommands(String command, Message message, Conversation conversation) throws LimooException {
+        if (command.equals(ADMIN_SEND_HELP_IN_LOBBY_COMMAND)) {
+            message.getWorkspace().getDefaultConversation().send(helpMsg);
+            RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
+        } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
+            if (restartPostgresCommand == null)
+                return;
+
+            SendMessageConsumer onError = msg -> {
+                RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), DISLIKE_REACTION);
+                message.sendInThread(msg);
+            };
+
+            try {
+                String[] args = new String[] {"/bin/bash", "-c", restartPostgresCommand};
+                Process process = new ProcessBuilder(args).start();
+
+                StringBuilder output = new StringBuilder();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+
+                try {
+                    int exitVal = process.waitFor();
+                    if (exitVal == 0) {
+                        RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
+                        message.sendInThread(output.toString());
+                    } else {
+                        onError.apply("Process exited with non zero value");
+                    }
+                } catch (InterruptedException e) {
+                    onError.apply(getMessageOfThrowable(e));
+                }
+            } catch (IOException e) {
+                onError.apply(getMessageOfThrowable(e));
+            }
+        } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
+            // TODO
+        }
+    }
+
+    private String getMessageOfThrowable(Throwable throwable) {
+        return throwable.getClass().getName() + ": " + throwable.getMessage();
+    }
+
+    @FunctionalInterface
+    private interface SendMessageConsumer {
+        void apply(String t) throws LimooException;
     }
 }
