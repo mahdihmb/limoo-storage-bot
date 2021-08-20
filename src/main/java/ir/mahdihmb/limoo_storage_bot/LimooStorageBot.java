@@ -9,6 +9,7 @@ import ir.limoo.driver.event.AddedToWorkspaceEventListener;
 import ir.limoo.driver.event.MessageCreatedEventListener;
 import ir.limoo.driver.exception.LimooException;
 import ir.mahdihmb.limoo_storage_bot.core.ConfigService;
+import ir.mahdihmb.limoo_storage_bot.core.CoreManager;
 import ir.mahdihmb.limoo_storage_bot.core.HibernateSessionManager;
 import ir.mahdihmb.limoo_storage_bot.core.MessageService;
 import ir.mahdihmb.limoo_storage_bot.dao.BaseDAO;
@@ -73,7 +74,7 @@ public class LimooStorageBot {
     private Conversation reportConversation;
     private long lastTimeSentBugReport = 0;
     private String adminUserId;
-    private String restartPostgresCommand;
+    private String restartPostgresScriptFile;
 
     public LimooStorageBot(String limooUrl, String botUsername, String botPassword) throws LimooException {
         limooDriver = new LimooDriver(limooUrl, botUsername, botPassword);
@@ -106,9 +107,9 @@ public class LimooStorageBot {
         }
 
         try {
-            String command = ConfigService.get("admin.restartPostgresCommand");
-            if (!command.isEmpty())
-                restartPostgresCommand = command;
+            String scriptFile = ConfigService.get("admin.restartPostgresScriptFile");
+            if (!scriptFile.isEmpty())
+                restartPostgresScriptFile = scriptFile;
         } catch (Throwable throwable) {
             logger.error("", throwable);
         }
@@ -371,7 +372,7 @@ public class LimooStorageBot {
         message.sendInThread(msgPrefix + MessageService.get("messageRemoved"));
     }
 
-    private <T> void handleFeedback(String command, Message message) throws Throwable {
+    private void handleFeedback(String command, Message message) throws Throwable {
         String feedbackText = command.substring(FEEDBACK_PREFIX.length()).trim();
         List<MessageFile> fileInfos = message.getCreatedFileInfos();
         if (feedbackText.isEmpty() && fileInfos.isEmpty())
@@ -518,7 +519,7 @@ public class LimooStorageBot {
             message.getWorkspace().getDefaultConversation().send(helpMsg);
             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
         } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
-            if (restartPostgresCommand == null)
+            if (restartPostgresScriptFile == null)
                 return;
 
             SendMessageConsumer onError = msg -> {
@@ -527,7 +528,9 @@ public class LimooStorageBot {
             };
 
             try {
-                Process process = new ProcessBuilder(restartPostgresCommand).start();
+                ProcessBuilder processBuilder = new ProcessBuilder();
+                processBuilder.command(restartPostgresScriptFile);
+                Process process = processBuilder.start();
 
                 StringBuilder output = new StringBuilder();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -539,8 +542,9 @@ public class LimooStorageBot {
                 try {
                     int exitVal = process.waitFor();
                     if (exitVal == 0) {
+                        CoreManager.initDatabaseInRuntime();
                         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
-                        message.sendInThread(output.toString());
+                        message.sendInThread("```" + LINE_BREAK + output + LINE_BREAK + "```");
                     } else {
                         onError.apply(MessageService.get("errorRunningProcess"));
                     }

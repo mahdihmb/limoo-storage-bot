@@ -25,4 +25,12 @@ public class CoreManager {
         }
     }
 
+    public static void initDatabaseInRuntime() {
+        try {
+            DataSourceManager.init();
+            HibernateSessionManager.init();
+        } catch (Throwable throwable) {
+            throw new ExceptionInInitializerError(throwable);
+        }
+    }
 }
