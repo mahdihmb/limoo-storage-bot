@@ -410,7 +410,6 @@ public class LimooStorageBot {
             if (text.length() > textPreview.length())
                 textPreview += "...";
 
-            name = name.replaceAll(BACK_QUOTE, "");
             listText.append(LINE_BREAK).append("- ").append(String.format(MessageService.get("nameTemplate"), name))
                     .append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
 
