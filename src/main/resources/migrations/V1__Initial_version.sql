@@ -40,10 +40,10 @@ create table user_messages
     userId    varchar(255) not null,
     messageId varchar(255) not null,
     primary key (id),
-    unique (name, userId),
     foreign key (userId) references users (id),
     foreign key (messageId) references messages (id)
 );
+alter table user_messages add constraint name_user_unique_key unique (name, userId);
 
 drop table if exists workspaces cascade;
 create table workspaces
@@ -60,7 +60,7 @@ create table workspace_messages
     workspaceId varchar(255) not null,
     messageId   varchar(255) not null,
     primary key (id),
-    unique (name, workspaceId),
     foreign key (workspaceId) references workspaces (id),
     foreign key (messageId) references messages (id)
 );
+alter table workspace_messages add constraint name_workspace_unique_key unique (name, workspaceId);
