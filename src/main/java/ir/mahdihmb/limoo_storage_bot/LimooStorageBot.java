@@ -314,10 +314,7 @@ public class LimooStorageBot {
                 .text(msg.getText())
                 .fileInfos(msg.getCreatedFileInfos());
 
-        if (message.getThreadRootId() == null)
-            conversation.send(messageBuilder);
-        else
-            message.sendInThread(messageBuilder);
+        sendInThreadOrConversation(message, conversation, messageBuilder);
     }
 
     private <T> void handleRemove(String command, Message message, String msgPrefix,
@@ -409,10 +406,7 @@ public class LimooStorageBot {
         String sendingText = msgPrefix + MessageService.get("messagesList")
                 + generateMessagesListText(messageAssignmentsMap);
 
-        if (message.getThreadRootId() == null)
-            conversation.send(sendingText);
-        else
-            message.sendInThread(sendingText);
+        sendInThreadOrConversation(message, conversation, sendingText);
     }
 
     private <T> void handleUniqueResSearch(String command, Message message, Conversation conversation, String msgPrefix,
@@ -441,10 +435,7 @@ public class LimooStorageBot {
                 .text(msg.getText())
                 .fileInfos(msg.getCreatedFileInfos());
 
-        if (message.getThreadRootId() == null)
-            conversation.send(messageBuilder);
-        else
-            message.sendInThread(messageBuilder);
+        sendInThreadOrConversation(message, conversation, messageBuilder);
     }
 
     private <T> void handleListResSearch(String command, Message message, Conversation conversation, String msgPrefix,
@@ -473,9 +464,20 @@ public class LimooStorageBot {
         String sendingText = msgPrefix + MessageService.get("filteredMessagesList")
                 + generateMessagesListText(filteredMessageAssignmentsMap);
 
+        sendInThreadOrConversation(message, conversation, sendingText);
+    }
+
+    private void sendInThreadOrConversation(Message message, Conversation conversation, String sendingText) throws LimooException {
         if (message.getThreadRootId() == null)
             conversation.send(sendingText);
         else
             message.sendInThread(sendingText);
+    }
+
+    private void sendInThreadOrConversation(Message message, Conversation conversation, Message.Builder messageBuilder) throws LimooException {
+        if (message.getThreadRootId() == null)
+            conversation.send(messageBuilder);
+        else
+            message.sendInThread(messageBuilder);
     }
 }
