@@ -125,8 +125,8 @@ public class LimooStorageBot {
                 try {
                     String msgText = message.getText().trim();
 
-                    if (adminUserId != null && msgText.startsWith(ADMIN_COMMAND_PREFIX + SPACE)) {
-                        String command = msgText.substring((ADMIN_COMMAND_PREFIX + SPACE).length()).trim();
+                    if (adminUserId != null && adminUserId.equals(message.getUserId()) && msgText.startsWith(ADMIN_COMMAND_PREFIX)) {
+                        String command = msgText.substring((ADMIN_COMMAND_PREFIX).length()).trim();
                         handleAdminCommands(command, message, conversation);
                         return;
                     }
@@ -529,7 +529,9 @@ public class LimooStorageBot {
     }
 
     private void handleAdminCommands(String command, Message message, Conversation conversation) throws Throwable {
-        if (command.equals(ADMIN_SEND_HELP_IN_LOBBY_COMMAND)) {
+        if (command.isEmpty()) {
+            conversation.send(MessageService.get("adminHelp"));
+        } else if (command.equals(ADMIN_SEND_HELP_IN_LOBBY_COMMAND)) {
             message.getWorkspace().getDefaultConversation().send(helpMsg);
             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
         } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
@@ -599,7 +601,16 @@ public class LimooStorageBot {
 
             message.sendInThread(report.toString());
         } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
-            // TODO
+            String text = command.substring(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX.length()).trim();
+            List<MessageFile> fileInfos = message.getCreatedFileInfos();
+            if (text.isEmpty() && fileInfos.isEmpty()) {
+                RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), DISLIKE_REACTION);
+                return;
+            }
+
+            Message.Builder messageBuilder = new Message.Builder().text(text).fileInfos(fileInfos);
+            message.getWorkspace().getDefaultConversation().send(messageBuilder);
+            RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
         }
     }
 
