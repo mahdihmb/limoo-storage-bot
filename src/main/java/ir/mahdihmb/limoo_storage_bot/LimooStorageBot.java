@@ -173,17 +173,18 @@ public class LimooStorageBot {
                     String command;
                     MessageAssignmentsProvider<?> messageAssignmentsProvider;
                     BaseDAO dao;
-                    String msgPrefix;
+                    String msgPrefix = "";
+                    boolean isWorkspaceCommand = false;
                     if (msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
                         command = msgText.substring((WORKSPACE_COMMAND_PREFIX + SPACE).length()).trim();
                         messageAssignmentsProvider = workspace;
                         dao = WorkspaceDAO.getInstance();
                         msgPrefix = MessageService.get("workspaceListIndicator") + SPACE;
+                        isWorkspaceCommand = true;
                     } else {
                         command = msgText.substring((COMMAND_PREFIX + SPACE).length()).trim();
                         messageAssignmentsProvider = user;
                         dao = UserDAO.getInstance();
-                        msgPrefix = "";
                     }
 
                     if (command.startsWith(ADD_PREFIX)) {
@@ -193,11 +194,11 @@ public class LimooStorageBot {
                     } else if (command.startsWith(FEEDBACK_PREFIX)) {
                         handleFeedback(command, message);
                     } else if (command.startsWith(LIST_PREFIX)) {
-                        handleList(message, conversation, msgPrefix, messageAssignmentsProvider);
+                        handleList(message, conversation, msgPrefix, messageAssignmentsProvider, isWorkspaceCommand);
                     } else if (command.startsWith(UNIQUE_RES_SEARCH_PREFIX) || command.startsWith(UNIQUE_RES_SEARCH_PREFIX_PERSIAN)) {
                         handleUniqueResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider);
                     } else if (command.startsWith(LIST_RES_SEARCH_PREFIX) || command.startsWith(LIST_RES_SEARCH_PREFIX_PERSIAN)) {
-                        handleListResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider);
+                        handleListResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider, isWorkspaceCommand);
                     } else if (!ILLEGAL_NAME_PATTERN.matcher(command).matches()) {
                         handleGet(command, message, conversation, msgPrefix, messageAssignmentsProvider);
                     }
@@ -401,7 +402,8 @@ public class LimooStorageBot {
         message.sendInThread(MessageService.get("feedbackSent"));
     }
 
-    private <T> String generateMessagesListText(Map<String, MessageAssignment<T>> messageAssignmentsMap) {
+    private <T> String generateMessagesListText(Map<String, MessageAssignment<T>> messageAssignmentsMap,
+                                                boolean isWorkspaceCommand) {
         StringBuilder listText = new StringBuilder();
         for (String name : messageAssignmentsMap.keySet()) {
             Message msg = messageAssignmentsMap.get(name).getMessage();
@@ -415,8 +417,12 @@ public class LimooStorageBot {
             if (text.length() > textPreview.length())
                 textPreview += "...";
 
-            listText.append(LINE_BREAK).append("- ").append(String.format(MessageService.get("nameTemplate"), name))
-                    .append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
+            listText.append(LINE_BREAK).append("- ");
+            if (isWorkspaceCommand)
+                listText.append(String.format(MessageService.get("getLinkTemplateForWorkspace"), name));
+            else
+                listText.append(String.format(MessageService.get("getLinkTemplateForUser"), name));
+            listText.append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
 
             List<MessageFile> fileInfos = msg.getCreatedFileInfos();
             if (!fileInfos.isEmpty()) {
@@ -434,7 +440,8 @@ public class LimooStorageBot {
     }
 
     private <T> void handleList(Message message, Conversation conversation, String msgPrefix,
-                                MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
+                                MessageAssignmentsProvider<T> messageAssignmentsProvider,
+                                boolean isWorkspaceCommand) throws LimooException {
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.isEmpty()) {
@@ -443,7 +450,7 @@ public class LimooStorageBot {
         }
 
         String sendingText = msgPrefix + MessageService.get("messagesList")
-                + generateMessagesListText(messageAssignmentsMap);
+                + generateMessagesListText(messageAssignmentsMap, isWorkspaceCommand);
 
         sendInThreadOrConversation(message, conversation, sendingText);
     }
@@ -478,7 +485,8 @@ public class LimooStorageBot {
     }
 
     private <T> void handleListResSearch(String command, Message message, Conversation conversation, String msgPrefix,
-                                         MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
+                                         MessageAssignmentsProvider<T> messageAssignmentsProvider,
+                                         boolean isWorkspaceCommand) throws LimooException {
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.isEmpty()) {
@@ -501,7 +509,7 @@ public class LimooStorageBot {
         }
 
         String sendingText = msgPrefix + MessageService.get("filteredMessagesList")
-                + generateMessagesListText(filteredMessageAssignmentsMap);
+                + generateMessagesListText(filteredMessageAssignmentsMap, isWorkspaceCommand);
 
         sendInThreadOrConversation(message, conversation, sendingText);
     }
