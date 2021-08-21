@@ -11,6 +11,9 @@
         </id>
 
         <property name="text" type="string"/>
+        <property name="workspaceId" type="string"/>
+        <property name="conversationId" type="string"/>
+        <property name="threadRootId" type="string"/>
 
         <bag name="fileInfos" table="message_file_infos" cascade="all-delete-orphan">
             <key column="messageId"/>

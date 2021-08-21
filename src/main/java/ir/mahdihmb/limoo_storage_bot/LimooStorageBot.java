@@ -319,8 +319,13 @@ public class LimooStorageBot {
             fileInfos = directReplyMessage.getCreatedFileInfos();
         }
 
-        Message msg = new Message.Builder().text(text).fileInfos(fileInfos).build();
+        Message msg = new Message();
         msg.setId(messageId);
+        msg.setText(text);
+        msg.setFileInfos(fileInfos);
+        msg.setWorkspaceId(message.getWorkspace().getId());
+        msg.setConversationId(message.getConversationId());
+        msg.setThreadRootId(message.getThreadRootId().equals(messageId) ? null : message.getThreadRootId());
         messageAssignmentsProvider.putInMessageAssignmentsMap(name, new MessageAssignment<>(name, messageAssignmentsProvider, msg));
         dao.update(messageAssignmentsProvider);
         message.sendInThread(msgPrefix + MessageService.get("messageAdded"));
