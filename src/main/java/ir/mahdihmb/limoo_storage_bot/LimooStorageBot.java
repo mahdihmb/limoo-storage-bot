@@ -532,7 +532,9 @@ public class LimooStorageBot {
         if (command.isEmpty()) {
             conversation.send(MessageService.get("adminHelp"));
         } else if (command.equals(ADMIN_SEND_HELP_IN_LOBBY_COMMAND)) {
-            message.getWorkspace().getDefaultConversation().send(helpMsg);
+            for (ir.limoo.driver.entity.Workspace workspace : limooDriver.getWorkspaces()) {
+                workspace.getDefaultConversation().send(helpMsg);
+            }
             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
         } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
             if (restartPostgresScriptFile == null) {
@@ -611,7 +613,9 @@ public class LimooStorageBot {
             }
 
             Message.Builder messageBuilder = new Message.Builder().text(text).fileInfos(fileInfos);
-            message.getWorkspace().getDefaultConversation().send(messageBuilder);
+            for (ir.limoo.driver.entity.Workspace workspace : limooDriver.getWorkspaces()) {
+                workspace.getDefaultConversation().send(messageBuilder);
+            }
             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
         }
     }
