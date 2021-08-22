@@ -586,7 +586,7 @@ public class LimooStorageBot {
             report.append(MessageService.get("workspaces")).append(LINE_BREAK);
             for (Workspace workspace : WorkspaceDAO.getInstance().list()) {
                 report.append("- ").append(workspaceIdsMap.get((String) workspace.getId()).getDisplayName())
-                        .append(SPACE).append(workspace.getCreatedMessageAssignmentsMap().size())
+                        .append(SPACE).append("(").append(workspace.getCreatedMessageAssignmentsMap().size()).append(")")
                         .append(LINE_BREAK);
             }
 
@@ -597,7 +597,7 @@ public class LimooStorageBot {
             report.append(MessageService.get("users")).append(LINE_BREAK);
             for (ir.limoo.driver.entity.User user : RequestUtils.getUsersByIds(message.getWorkspace(), idUsageMap.keySet())) {
                 report.append("- ").append(user.getDisplayName())
-                        .append(SPACE).append(idUsageMap.get(user.getId()))
+                        .append(SPACE).append("(").append(idUsageMap.get(user.getId())).append(")")
                         .append(LINE_BREAK);
             }
 
