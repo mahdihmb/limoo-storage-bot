@@ -30,6 +30,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +71,7 @@ public class LimooStorageBot {
     private static final int MAX_NAME_LEN = 200;
     private static final int TEXT_PREVIEW_LEN = 100;
     private static final long ONE_HOUR_MILLIS = 60 * 60 * 1000;
+    private static final int MESSAGES_LIST_BATCH_SIZE = 20;
 
     private final LimooDriver limooDriver;
     private final String helpMsg;
@@ -326,7 +328,8 @@ public class LimooStorageBot {
         msg.setFileInfos(fileInfos);
         msg.setWorkspaceId(message.getWorkspace().getId());
         msg.setConversationId(message.getConversationId());
-        msg.setThreadRootId(message.getThreadRootId().equals(messageId) ? null : message.getThreadRootId());
+        String threadRootId = message.getThreadRootId();
+        msg.setThreadRootId(threadRootId == null || threadRootId.equals(messageId) ? null : threadRootId);
         messageAssignmentsProvider.putInMessageAssignmentsMap(name, new MessageAssignment<>(name, messageAssignmentsProvider, msg));
         dao.update(messageAssignmentsProvider);
         message.sendInThread(msgPrefix + MessageService.get("messageAdded"));
@@ -402,9 +405,11 @@ public class LimooStorageBot {
         message.sendInThread(MessageService.get("feedbackSent"));
     }
 
-    private <T> String generateMessagesListText(Map<String, MessageAssignment<T>> messageAssignmentsMap,
+    private <T> List<String> generateMessagesListBatches(Map<String, MessageAssignment<T>> messageAssignmentsMap,
                                                 boolean isWorkspaceCommand) {
-        StringBuilder listText = new StringBuilder();
+        List<String> batches = new ArrayList<>();
+        StringBuilder listTextBuilder = new StringBuilder();
+        int counter = 0;
         for (String name : messageAssignmentsMap.keySet()) {
             Message msg = messageAssignmentsMap.get(name).getMessage();
             if (msg instanceof HibernateProxy)
@@ -417,26 +422,22 @@ public class LimooStorageBot {
             if (text.length() > textPreview.length())
                 textPreview += "...";
 
-            listText.append(LINE_BREAK).append("- ");
-            if (isWorkspaceCommand)
-                listText.append(String.format(MessageService.get("getLinkTemplateForWorkspace"), name));
-            else
-                listText.append(String.format(MessageService.get("getLinkTemplateForUser"), name));
-            listText.append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
+            String getLinkTemplateKey = isWorkspaceCommand ? "getLinkTemplateForWorkspace" : "getLinkTemplateForUser";
+            listTextBuilder.append(LINE_BREAK)
+                    .append("- ").append(String.format(MessageService.get(getLinkTemplateKey), name))
+                    .append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview))
+                    .append(" - ").append(String.format(MessageService.get("filesTemplate"), msg.getCreatedFileInfos().size()));
 
-            List<MessageFile> fileInfos = msg.getCreatedFileInfos();
-            if (!fileInfos.isEmpty()) {
-                StringBuilder fileNamesBuilder = new StringBuilder();
-                for (int i = 0; i < fileInfos.size(); i++) {
-                    if (i > 0)
-                        fileNamesBuilder.append(COMMA_MARK).append(SPACE);
-                    fileNamesBuilder.append(fileInfos.get(i).getName());
-                }
-                String fileNames = fileNamesBuilder.toString().replaceAll(BACK_QUOTE, "");
-                listText.append(" - ").append(String.format(MessageService.get("filesTemplate"), fileNames));
+            counter += 1;
+            if (counter % MESSAGES_LIST_BATCH_SIZE == 0) {
+                batches.add(listTextBuilder.toString());
+                listTextBuilder = new StringBuilder();
             }
         }
-        return listText.toString();
+        if (!listTextBuilder.toString().isEmpty()) {
+            batches.add(listTextBuilder.toString());
+        }
+        return batches;
     }
 
     private <T> void handleList(Message message, Conversation conversation, String msgPrefix,
@@ -449,10 +450,12 @@ public class LimooStorageBot {
             return;
         }
 
-        String sendingText = msgPrefix + MessageService.get("messagesList")
-                + generateMessagesListText(messageAssignmentsMap, isWorkspaceCommand);
-
-        sendInThreadOrConversation(message, conversation, sendingText);
+        List<String> messagesListBatches = generateMessagesListBatches(messageAssignmentsMap, isWorkspaceCommand);
+        for (int i = 0; i < messagesListBatches.size(); i++) {
+            String messagesListKey = i == 0 ? "messagesList" : "messagesListRest";
+            String sendingText = msgPrefix + String.format(MessageService.get(messagesListKey), messagesListBatches.get(i));
+            sendInThreadOrConversation(message, conversation, sendingText);
+        }
     }
 
     private <T> void handleUniqueResSearch(String command, Message message, Conversation conversation, String msgPrefix,
@@ -508,10 +511,12 @@ public class LimooStorageBot {
             filteredMessageAssignmentsMap.put(foundName, messageAssignmentsMap.get(foundName));
         }
 
-        String sendingText = msgPrefix + MessageService.get("filteredMessagesList")
-                + generateMessagesListText(filteredMessageAssignmentsMap, isWorkspaceCommand);
-
-        sendInThreadOrConversation(message, conversation, sendingText);
+        List<String> messagesListBatches = generateMessagesListBatches(filteredMessageAssignmentsMap, isWorkspaceCommand);
+        for (int i = 0; i < messagesListBatches.size(); i++) {
+            String messagesListKey = i == 0 ? "filteredMessagesList" : "filteredMessagesListRest";
+            String sendingText = msgPrefix + String.format(MessageService.get(messagesListKey), messagesListBatches.get(i));
+            sendInThreadOrConversation(message, conversation, sendingText);
+        }
     }
 
     private void sendInThreadOrConversation(Message message, Conversation conversation, String sendingText) throws LimooException {
