@@ -425,8 +425,12 @@ public class LimooStorageBot {
             String getLinkTemplateKey = isWorkspaceCommand ? "getLinkTemplateForWorkspace" : "getLinkTemplateForUser";
             listTextBuilder.append(LINE_BREAK)
                     .append("- ").append(String.format(MessageService.get(getLinkTemplateKey), name))
-                    .append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview))
-                    .append(" - ").append(String.format(MessageService.get("filesTemplate"), msg.getCreatedFileInfos().size()));
+                    .append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
+
+            int filesCount = msg.getCreatedFileInfos().size();
+            if (filesCount > 0) {
+                listTextBuilder.append(" - ").append(String.format(MessageService.get("filesTemplate"), filesCount));
+            }
 
             counter += 1;
             if (counter % MESSAGES_LIST_BATCH_SIZE == 0) {
