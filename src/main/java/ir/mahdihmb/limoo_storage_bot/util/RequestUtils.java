@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 public class RequestUtils {
 
@@ -46,7 +47,7 @@ public class RequestUtils {
         }
     }
 
-    public static List<User> getUsersByIds(Workspace workspace, List<String> userIds) throws LimooException {
+    public static List<User> getUsersByIds(Workspace workspace, Set<String> userIds) throws LimooException {
         ArrayNode userIdsNode = JacksonUtils.getObjectMapper().createArrayNode();
         for (String userId : userIds) {
             userIdsNode.add(userId);

@@ -577,16 +577,7 @@ public class LimooStorageBot {
             }
         } else if (command.equals(ADMIN_REPORT_COMMAND)) {
             HibernateSessionManager.openSession();
-            List<String> userIds = UserDAO.getInstance().list().stream()
-                    .map(user -> (String) user.getId())
-                    .collect(Collectors.toList());
             StringBuilder report = new StringBuilder();
-            report.append(MessageService.get("users")).append(LINE_BREAK);
-            for (ir.limoo.driver.entity.User user : RequestUtils.getUsersByIds(message.getWorkspace(), userIds)) {
-                report.append("- ")
-                        .append(user.getDisplayName())
-                        .append(LINE_BREAK);
-            }
 
             Map<String, ir.limoo.driver.entity.Workspace> workspaceIdsMap = new HashMap<>();
             for (ir.limoo.driver.entity.Workspace workspace : limooDriver.getWorkspaces()) {
@@ -594,8 +585,19 @@ public class LimooStorageBot {
             }
             report.append(MessageService.get("workspaces")).append(LINE_BREAK);
             for (Workspace workspace : WorkspaceDAO.getInstance().list()) {
-                report.append("- ")
-                        .append(workspaceIdsMap.get((String) workspace.getId()).getDisplayName())
+                report.append("- ").append(workspaceIdsMap.get((String) workspace.getId()).getDisplayName())
+                        .append(SPACE).append(workspace.getCreatedMessageAssignmentsMap().size())
+                        .append(LINE_BREAK);
+            }
+
+            Map<String, Integer> idUsageMap = new HashMap<>();
+            for (User user : UserDAO.getInstance().list()) {
+                idUsageMap.put((String) user.getId(), user.getCreatedMessageAssignmentsMap().size());
+            }
+            report.append(MessageService.get("users")).append(LINE_BREAK);
+            for (ir.limoo.driver.entity.User user : RequestUtils.getUsersByIds(message.getWorkspace(), idUsageMap.keySet())) {
+                report.append("- ").append(user.getDisplayName())
+                        .append(SPACE).append(idUsageMap.get(user.getId()))
                         .append(LINE_BREAK);
             }
 
