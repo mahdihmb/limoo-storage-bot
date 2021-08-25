@@ -42,7 +42,6 @@ public class LimooStorageBot {
     private static final transient Logger logger = LoggerFactory.getLogger(LimooStorageBot.class);
 
     private static final String PERSIAN_QUESTION_MARK = MessageService.get("questionMark");
-    private static final String COMMA_MARK = ",";
     private static final String LINE_BREAK = "\n";
     private static final String LINE_BREAKS_REGEX = "[\r\n]";
     private static final String SPACE = " ";
@@ -69,7 +68,7 @@ public class LimooStorageBot {
     private static final String ADMIN_REPORT_COMMAND = MessageService.get("adminReportCommand");
 
     private static final int MAX_NAME_LEN = 200;
-    private static final int TEXT_PREVIEW_LEN = 100;
+    private static final int TEXT_PREVIEW_LEN = 70;
     private static final long ONE_HOUR_MILLIS = 60 * 60 * 1000;
     private static final int MESSAGES_LIST_BATCH_SIZE = 20;
 
@@ -119,7 +118,7 @@ public class LimooStorageBot {
         }
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public void run() {
         limooDriver.addEventListener(new MessageCreatedEventListener() {
             @Override
@@ -471,9 +470,16 @@ public class LimooStorageBot {
             return;
         }
 
-        String term = command.substring(UNIQUE_RES_SEARCH_PREFIX.length()).trim();
+        String query = command.substring(UNIQUE_RES_SEARCH_PREFIX.length()).trim();
+        String[] keywords = query.split(" +");
         String foundName = messageAssignmentsMap.keySet().stream()
-                .filter(name -> name.toLowerCase().contains(term.toLowerCase()))
+                .filter(name -> {
+                    for (String keyword : keywords) {
+                        if (!name.toLowerCase().contains(keyword.toLowerCase()))
+                            return false;
+                    }
+                    return true;
+                })
                 .findAny().orElse(null);
         if (foundName == null) {
             message.sendInThread(msgPrefix + MessageService.get("noMatches"));
@@ -501,9 +507,16 @@ public class LimooStorageBot {
             return;
         }
 
-        String term = command.substring(LIST_RES_SEARCH_PREFIX.length()).trim();
+        String query = command.substring(LIST_RES_SEARCH_PREFIX.length()).trim();
+        String[] keywords = query.split(" +");
         List<String> foundNames = messageAssignmentsMap.keySet().stream()
-                .filter(name -> name.toLowerCase().contains(term.toLowerCase()))
+                .filter(name -> {
+                    for (String keyword : keywords) {
+                        if (!name.toLowerCase().contains(keyword.toLowerCase()))
+                            return false;
+                    }
+                    return true;
+                })
                 .collect(Collectors.toList());
         if (foundNames.isEmpty()) {
             message.sendInThread(msgPrefix + MessageService.get("noMatches"));
