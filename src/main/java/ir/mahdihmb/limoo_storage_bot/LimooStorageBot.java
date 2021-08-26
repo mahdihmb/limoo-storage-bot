@@ -410,6 +410,10 @@ public class LimooStorageBot {
         StringBuilder listTextBuilder = new StringBuilder();
         int counter = 0;
         for (String name : messageAssignmentsMap.keySet()) {
+            String getLinkTemplateKey = isWorkspaceCommand ? "getLinkTemplateForWorkspace" : "getLinkTemplateForUser";
+            listTextBuilder.append(LINE_BREAK)
+                    .append("- ").append(String.format(MessageService.get(getLinkTemplateKey), name));
+
             Message msg = messageAssignmentsMap.get(name).getMessage();
             if (msg instanceof HibernateProxy)
                 msg = (Message) Hibernate.unproxy(msg);
@@ -421,15 +425,12 @@ public class LimooStorageBot {
             if (text.length() > textPreview.length())
                 textPreview += "...";
 
-            String getLinkTemplateKey = isWorkspaceCommand ? "getLinkTemplateForWorkspace" : "getLinkTemplateForUser";
-            listTextBuilder.append(LINE_BREAK)
-                    .append("- ").append(String.format(MessageService.get(getLinkTemplateKey), name))
-                    .append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
+            if (!textPreview.isEmpty())
+                listTextBuilder.append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
 
             int filesCount = msg.getCreatedFileInfos().size();
-            if (filesCount > 0) {
+            if (filesCount > 0)
                 listTextBuilder.append(" - ").append(String.format(MessageService.get("filesTemplate"), filesCount));
-            }
 
             counter += 1;
             if (counter % MESSAGES_LIST_BATCH_SIZE == 0) {
