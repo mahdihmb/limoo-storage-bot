@@ -12,9 +12,9 @@ public class CoreManager {
             ConfigService.init();
             MessageService.init();
             DataSourceManager.init();
-            HibernateSessionManager.init();
             FlywayManager.init();
             FlywayManager.migrate();
+            HibernateSessionManager.init();
         } catch (Throwable throwable) {
             throw new ExceptionInInitializerError(throwable);
         }

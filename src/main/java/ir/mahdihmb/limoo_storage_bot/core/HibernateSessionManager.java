@@ -25,8 +25,8 @@ public class HibernateSessionManager {
 
     protected static void init() throws IOException, URISyntaxException {
         Properties properties = new Properties();
-        properties.setProperty("hibernate.hbm2ddl.auto", "update");
-        // managed: org.hibernate.context.internal.ManagedSessionContext
+        properties.setProperty("hibernate.hbm2ddl.auto", "validate");
+        // managed: must use org.hibernate.context.internal.ManagedSessionContext
         properties.setProperty("hibernate.current_session_context_class", "managed");
 
         properties.setProperty("hibernate.dialect", "org.hibernate.dialect.PostgreSQL82Dialect");
