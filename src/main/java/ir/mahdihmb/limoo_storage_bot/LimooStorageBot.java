@@ -59,7 +59,7 @@ public class LimooStorageBot {
             logger.error("", throwable);
         }
 
-        userCommandsHandler = new UserCommandHandler(limooUrl, reportConversation);
+        userCommandsHandler = new UserCommandHandler(limooUrl, limooDriver, reportConversation);
 
         try {
             String userId = ConfigService.get("admin.userId");
@@ -75,7 +75,7 @@ public class LimooStorageBot {
             @Override
             public void onNewMessage(Message message, Conversation conversation) {
                 try {
-                    String msgText = trimSpaces(message.getText());
+                    String msgText = message.getText().trim();
 
                     if (adminUserId != null && adminUserId.equals(message.getUserId()) && msgText.startsWith(ADMIN_COMMAND_PREFIX)) {
                         adminCommandHandler.handle(message, conversation);
@@ -103,7 +103,7 @@ public class LimooStorageBot {
 
                             directReplyMessage.setWorkspace(message.getWorkspace());
                             message = directReplyMessage;
-                            msgText = trimSpaces(message.getText());
+                            msgText = message.getText().trim();
                         }
                     }
 

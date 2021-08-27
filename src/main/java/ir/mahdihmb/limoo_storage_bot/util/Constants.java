@@ -11,6 +11,7 @@ public class Constants {
     public static final String LINE_BREAKS_REGEX = "[\r\n]";
     public static final String SPACE = " ";
     public static final String BACK_QUOTE = "`";
+
     public static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
 
     public static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
@@ -25,10 +26,11 @@ public class Constants {
     public static final String UNIQUE_RES_SEARCH_PREFIX_PERSIAN = String.format("%s", PERSIAN_QUESTION_MARK);
 
     public static final String ADMIN_COMMAND_PREFIX = MessageService.get("adminCommandPrefix");
-    public static final String ADMIN_SEND_HELP_IN_LOBBY_COMMAND = MessageService.get("adminSendHelpInLobbyCommand");
-    public static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminSendUpdateInLobbyCommandPrefix");
     public static final String ADMIN_RESTART_POSTGRESQL_COMMAND = MessageService.get("adminRestartPostgresqlCommand");
     public static final String ADMIN_REPORT_COMMAND = MessageService.get("adminReportCommand");
+    public static final String ADMIN_SEND_HELP_IN_LOBBY_COMMAND = MessageService.get("adminSendHelpInLobbyCommand");
+    public static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminSendUpdateInLobbyCommandPrefix");
+    public static final String ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX = MessageService.get("adminResponseToFeedbackCommandPrefix");
 
     public static final int MAX_NAME_LEN = 200;
     public static final int TEXT_PREVIEW_LEN = 70;
@@ -37,6 +39,7 @@ public class Constants {
 
     public static final String LIKE_REACTION = "+1";
     public static final String DISLIKE_REACTION = "-1";
+    public static final String SEEN_REACTION = "heavy_check_mark";
     public static final String EXCLAMATION_EMOJI = ":exclamation:";
     public static final String CHECK_MARK_EMOJI = ":white_check_mark:";
     public static final String LINK_EMOJI = ":link:";

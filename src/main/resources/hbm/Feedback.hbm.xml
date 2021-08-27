@@ -1,0 +1,22 @@
+<?xml version = "1.0" encoding = "utf-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping>
+    <class name="ir.mahdihmb.limoo_storage_bot.entity.Feedback" table="feedbacks">
+
+        <id name="id" type="long">
+            <generator class="increment"/>
+        </id>
+
+        <property name="userId" type="string"/>
+        <property name="userWorkspaceId" type="string"/>
+        <property name="userConversationId" type="string"/>
+        <property name="userThreadRootId" type="string"/>
+        <property name="adminWorkspaceId" type="string"/>
+        <property name="adminConversationId" type="string"/>
+        <property name="adminThreadRootId" type="string"/>
+
+    </class>
+</hibernate-mapping>

@@ -1,17 +1,17 @@
 package ir.mahdihmb.limoo_storage_bot.handler;
 
+import ir.limoo.driver.LimooDriver;
 import ir.limoo.driver.entity.Conversation;
 import ir.limoo.driver.entity.Message;
 import ir.limoo.driver.entity.MessageFile;
 import ir.limoo.driver.exception.LimooException;
+import ir.limoo.driver.util.MessageUtils;
 import ir.mahdihmb.limoo_storage_bot.core.MessageService;
 import ir.mahdihmb.limoo_storage_bot.dao.BaseDAO;
+import ir.mahdihmb.limoo_storage_bot.dao.FeedbackDAO;
 import ir.mahdihmb.limoo_storage_bot.dao.UserDAO;
 import ir.mahdihmb.limoo_storage_bot.dao.WorkspaceDAO;
-import ir.mahdihmb.limoo_storage_bot.entity.MessageAssignment;
-import ir.mahdihmb.limoo_storage_bot.entity.MessageAssignmentsProvider;
-import ir.mahdihmb.limoo_storage_bot.entity.User;
-import ir.mahdihmb.limoo_storage_bot.entity.Workspace;
+import ir.mahdihmb.limoo_storage_bot.entity.*;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
 import org.hibernate.Hibernate;
 import org.hibernate.proxy.HibernateProxy;
@@ -28,16 +28,18 @@ import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
 public class UserCommandHandler {
 
     private final String limooUrl;
+    private final LimooDriver limooDriver;
     private final Conversation reportConversation;
 
-    public UserCommandHandler(String limooUrl, Conversation reportConversation) {
+    public UserCommandHandler(String limooUrl, LimooDriver limooDriver, Conversation reportConversation) {
         this.limooUrl = limooUrl;
+        this.limooDriver = limooDriver;
         this.reportConversation = reportConversation;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void handle(Message message, Conversation conversation, User user, Workspace workspace) throws Throwable {
-        String msgText = trimSpaces(message.getText());
+        String msgText = message.getText().trim();
         String command;
         MessageAssignmentsProvider<?> messageAssignmentsProvider;
         BaseDAO dao;
@@ -56,7 +58,7 @@ public class UserCommandHandler {
         }
 
         if (command.startsWith(ADD_PREFIX)) {
-            handleAdd(command, message, conversation, msgPrefix, messageAssignmentsProvider, dao);
+            handleAdd(command, message, msgPrefix, messageAssignmentsProvider, dao);
         } else if (command.startsWith(REMOVE_PREFIX)) {
             handleRemove(command, message, msgPrefix, messageAssignmentsProvider, dao);
         } else if (command.startsWith(FEEDBACK_PREFIX)) {
@@ -72,7 +74,7 @@ public class UserCommandHandler {
         }
     }
 
-    private <T> void handleAdd(String command, Message message, Conversation conversation, String msgPrefix,
+    private <T> void handleAdd(String command, Message message, String msgPrefix,
                                MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                BaseDAO<MessageAssignmentsProvider<T>> dao) throws Throwable {
         String temp = command.substring(ADD_PREFIX.length());
@@ -124,7 +126,7 @@ public class UserCommandHandler {
         }
 
         if (text.isEmpty() && fileInfos.isEmpty()) {
-            Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), conversation.getId(), directReplyMessageId);
+            Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), message.getConversationId(), directReplyMessageId);
             if (directReplyMessage == null) {
                 sendErrorMsgInThread(message, MessageService.get("noDirectReplyMessage"));
                 return;
@@ -166,10 +168,7 @@ public class UserCommandHandler {
         if (msg instanceof HibernateProxy)
             msg = (Message) Hibernate.unproxy(msg);
 
-        Message.Builder messageBuilder = new Message.Builder()
-                .text(msg.getText())
-                .fileInfos(msg.getCreatedFileInfos());
-
+        Message.Builder messageBuilder = new Message.Builder().text(msg.getText()).fileInfos(msg.getCreatedFileInfos());
         sendInThreadOrConversation(message, conversation, messageBuilder);
     }
 
@@ -208,8 +207,10 @@ public class UserCommandHandler {
     private void handleFeedback(String command, Message message) throws Throwable {
         String feedbackText = trimSpaces(command.substring(FEEDBACK_PREFIX.length()));
         List<MessageFile> fileInfos = message.getCreatedFileInfos();
-        if (feedbackText.isEmpty() && fileInfos.isEmpty())
+        if (feedbackText.isEmpty() && fileInfos.isEmpty()) {
+            sendErrorMsgInThread(message, MessageService.get("badCommand"));
             return;
+        }
 
         if (reportConversation == null) {
             sendErrorMsgInThread(message, MessageService.get("feedbackNotSupported"));
@@ -218,13 +219,33 @@ public class UserCommandHandler {
 
         ir.limoo.driver.entity.User user = RequestUtils.getUser(message.getWorkspace(), message.getUserId());
         String userDisplayName = user != null ? user.getDisplayName() : MessageService.get("unknownUser");
-        String reportMsg = String.format(MessageService.get("feedbackReportTextForAdmin"), userDisplayName)
-                + LINE_BREAK + feedbackText;
-        Message.Builder messageBuilder = new Message.Builder()
-                .text(reportMsg)
-                .fileInfos(fileInfos);
-        reportConversation.send(messageBuilder);
-        sendSuccessMsgInThread(message, MessageService.get("feedbackSent"));
+        String reportMsg = String.format(MessageService.get("feedbackReportTextForAdmin"), userDisplayName) + LINE_BREAK + feedbackText;
+        Message.Builder messageBuilder = new Message.Builder().text(reportMsg).fileInfos(fileInfos);
+
+        if (message.getThreadRootId() != null) {
+            Feedback rootFeedback = FeedbackDAO.getInstance().getByUserThreadRootId(message.getThreadRootId());
+            if (rootFeedback != null) {
+                messageBuilder.threadRootId(rootFeedback.getAdminThreadRootId());
+                MessageUtils.sendMessage(
+                        messageBuilder,
+                        limooDriver.getWorkspaceById(rootFeedback.getAdminWorkspaceId()),
+                        rootFeedback.getAdminConversationId()
+                );
+                RequestUtils.reactToMessage(message.getWorkspace(), message.getConversationId(), message.getId(), SEEN_REACTION);
+                return;
+            }
+        }
+
+        Message sentMdgForAdmin = reportConversation.send(messageBuilder);
+        RequestUtils.reactToMessage(message.getWorkspace(), message.getConversationId(), message.getId(), SEEN_REACTION);
+        message.sendInThread(MessageService.get("feedbackSent"));
+
+        String threadId = message.getThreadRootId() == null ? message.getId() : message.getThreadRootId();
+        Feedback feedback = new Feedback(
+                message.getUserId(), message.getWorkspace().getId(), message.getConversationId(), threadId,
+                reportConversation.getWorkspace().getId(), reportConversation.getId(), sentMdgForAdmin.getId()
+        );
+        FeedbackDAO.getInstance().add(feedback);
     }
 
     private <T> List<String> generateMessagesListBatches(Map<String, MessageAssignment<T>> messageAssignmentsMap,
@@ -296,7 +317,7 @@ public class UserCommandHandler {
         List<String> messagesListBatches = generateMessagesListBatches(messageAssignmentsMap, isWorkspaceCommand);
         for (int i = 0; i < messagesListBatches.size(); i++) {
             String messagesListKey = i == 0 ? "messagesList" : "messagesListRest";
-            String sendingText = msgPrefix + String.format(MessageService.get(messagesListKey), messagesListBatches.get(i));
+            String sendingText = msgPrefix + MessageService.get(messagesListKey) + messagesListBatches.get(i);
             sendInThreadOrConversation(message, conversation, sendingText);
         }
     }
@@ -340,10 +361,7 @@ public class UserCommandHandler {
         if (msg instanceof HibernateProxy)
             msg = (Message) Hibernate.unproxy(msg);
 
-        Message.Builder messageBuilder = new Message.Builder()
-                .text(msg.getText())
-                .fileInfos(msg.getCreatedFileInfos());
-
+        Message.Builder messageBuilder = new Message.Builder().text(msg.getText()).fileInfos(msg.getCreatedFileInfos());
         sendInThreadOrConversation(message, conversation, messageBuilder);
     }
 
@@ -391,7 +409,7 @@ public class UserCommandHandler {
         List<String> messagesListBatches = generateMessagesListBatches(filteredMessageAssignmentsMap, isWorkspaceCommand);
         for (int i = 0; i < messagesListBatches.size(); i++) {
             String messagesListKey = i == 0 ? "filteredMessagesList" : "filteredMessagesListRest";
-            String sendingText = msgPrefix + String.format(MessageService.get(messagesListKey), messagesListBatches.get(i));
+            String sendingText = msgPrefix + MessageService.get(messagesListKey) + messagesListBatches.get(i);
             sendInThreadOrConversation(message, conversation, sendingText);
         }
     }

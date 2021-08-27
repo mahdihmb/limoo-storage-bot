@@ -91,8 +91,22 @@ public class BaseDAO<T extends IdProvider> {
         });
     }
 
+    @SuppressWarnings({"unchecked"})
+    public T getByField(String fieldName, Object fieldValue) throws Throwable {
+        return (T) doTransaction((session) -> {
+            CriteriaBuilder cb = session.getCriteriaBuilder();
+            CriteriaQuery<T> cr = cb.createQuery(persistentClass);
+            Root<T> root = cr.from(persistentClass);
+            cr.select(root).where(cb.equal(root.get(fieldName), fieldValue));
+            List<T> list = session.createQuery(cr).list();
+            if (list.isEmpty())
+                return null;
+            return list.get(0);
+        });
+    }
+
     @FunctionalInterface
-    private interface CheckedFunction<T, R> {
+    protected interface CheckedFunction<T, R> {
         R apply(T t) throws Throwable;
     }
 }
