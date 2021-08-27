@@ -11,7 +11,7 @@
         </id>
 
         <property name="text" type="string"/>
-        <property name="workspaceId" type="string"/>
+        <property name="workspaceKey" type="string"/>
         <property name="conversationId" type="string"/>
         <property name="threadRootId" type="string"/>
 

@@ -13,7 +13,6 @@ import ir.mahdihmb.limoo_storage_bot.core.MessageService;
 import ir.mahdihmb.limoo_storage_bot.dao.UserDAO;
 import ir.mahdihmb.limoo_storage_bot.dao.WorkspaceDAO;
 import ir.mahdihmb.limoo_storage_bot.entity.User;
-import ir.mahdihmb.limoo_storage_bot.util.GeneralUtils;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 
 import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
+import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.getMessageOfThrowable;
+import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.trimSpaces;
 
 public class AdminCommandHandler {
 
@@ -50,8 +51,8 @@ public class AdminCommandHandler {
     }
 
     public void handle(Message message, Conversation conversation) throws Throwable {
-        String msgText = GeneralUtils.trimSpaces(message.getText());
-        String command = GeneralUtils.trimSpaces(msgText.substring((ADMIN_COMMAND_PREFIX).length()));
+        String msgText = trimSpaces(message.getText());
+        String command = trimSpaces(msgText.substring((ADMIN_COMMAND_PREFIX).length()));
         if (command.isEmpty()) {
             conversation.send(MessageService.get("adminHelp"));
         } else if (command.equals(ADMIN_SEND_HELP_IN_LOBBY_COMMAND)) {
@@ -95,10 +96,10 @@ public class AdminCommandHandler {
                     }
                     onResult.apply("```" + LINE_BREAK + output + LINE_BREAK + "```", reaction);
                 } catch (InterruptedException e) {
-                    onResult.apply("```" + LINE_BREAK + GeneralUtils.getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
+                    onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
                 }
             } catch (IOException e) {
-                onResult.apply("```" + LINE_BREAK + GeneralUtils.getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
+                onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
             }
         } else if (command.equals(ADMIN_REPORT_COMMAND)) {
             HibernateSessionManager.openSession();
@@ -128,7 +129,7 @@ public class AdminCommandHandler {
 
             message.sendInThread(report.toString());
         } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
-            String text = GeneralUtils.trimSpaces(command.substring(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX.length()));
+            String text = trimSpaces(command.substring(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX.length()));
             List<MessageFile> fileInfos = message.getCreatedFileInfos();
             if (text.isEmpty() && fileInfos.isEmpty()) {
                 RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), DISLIKE_REACTION);

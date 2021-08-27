@@ -10,21 +10,31 @@ public class GeneralUtils {
         return text.replaceFirst("^[ \\t]+", "").replaceFirst("[ \\t]+$", "");
     }
 
+    public static boolean notEmpty(String text) {
+        return text != null && !text.isEmpty();
+    }
+
+    public static String concatUris(String first, String second) {
+        return first + (first.endsWith("/") || second.startsWith("/") ? "" : "/") + second;
+    }
+
     public static String getMessageOfThrowable(Throwable throwable) {
         return throwable.getClass().getName() + ": " + throwable.getMessage();
     }
 
-    public static void sendInThreadOrConversation(Message message, Conversation conversation, String sendingText) throws LimooException {
+    public static ir.limoo.driver.entity.Message sendInThreadOrConversation(Message message, Conversation conversation,
+                                                                            String sendingText) throws LimooException {
         if (message.getThreadRootId() == null)
-            conversation.send(sendingText);
+            return conversation.send(sendingText);
         else
-            message.sendInThread(sendingText);
+            return message.sendInThread(sendingText);
     }
 
-    public static void sendInThreadOrConversation(Message message, Conversation conversation, Message.Builder messageBuilder) throws LimooException {
+    public static ir.limoo.driver.entity.Message sendInThreadOrConversation(Message message, Conversation conversation,
+                                                                            Message.Builder messageBuilder) throws LimooException {
         if (message.getThreadRootId() == null)
-            conversation.send(messageBuilder);
+            return conversation.send(messageBuilder);
         else
-            message.sendInThread(messageBuilder);
+            return message.sendInThread(messageBuilder);
     }
 }

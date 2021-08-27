@@ -1,5 +1,6 @@
 package ir.mahdihmb.limoo_storage_bot.handler;
 
+import ir.limoo.driver.LimooDriver;
 import ir.limoo.driver.entity.Conversation;
 import ir.limoo.driver.entity.Message;
 import ir.limoo.driver.entity.MessageFile;
@@ -12,7 +13,6 @@ import ir.mahdihmb.limoo_storage_bot.entity.MessageAssignment;
 import ir.mahdihmb.limoo_storage_bot.entity.MessageAssignmentsProvider;
 import ir.mahdihmb.limoo_storage_bot.entity.User;
 import ir.mahdihmb.limoo_storage_bot.entity.Workspace;
-import ir.mahdihmb.limoo_storage_bot.util.GeneralUtils;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
 import org.hibernate.Hibernate;
 import org.hibernate.proxy.HibernateProxy;
@@ -24,31 +24,34 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
+import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
 
 public class UserCommandHandler {
 
-    private Conversation reportConversation;
+    private final String limooUrl;
+    private final Conversation reportConversation;
 
-    public UserCommandHandler(Conversation reportConversation) {
+    public UserCommandHandler(String limooUrl, Conversation reportConversation) {
+        this.limooUrl = limooUrl;
         this.reportConversation = reportConversation;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void handle(Message message, Conversation conversation, User user, Workspace workspace) throws Throwable {
-        String msgText = GeneralUtils.trimSpaces(message.getText());
+        String msgText = trimSpaces(message.getText());
         String command;
         MessageAssignmentsProvider<?> messageAssignmentsProvider;
         BaseDAO dao;
         String msgPrefix = "";
         boolean isWorkspaceCommand = false;
         if (msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
-            command = GeneralUtils.trimSpaces(msgText.substring((WORKSPACE_COMMAND_PREFIX + SPACE).length()));
+            command = trimSpaces(msgText.substring((WORKSPACE_COMMAND_PREFIX + SPACE).length()));
             messageAssignmentsProvider = workspace;
             dao = WorkspaceDAO.getInstance();
             msgPrefix = MessageService.get("workspaceListIndicator") + SPACE;
             isWorkspaceCommand = true;
         } else {
-            command = GeneralUtils.trimSpaces(msgText.substring((COMMAND_PREFIX + SPACE).length()));
+            command = trimSpaces(msgText.substring((COMMAND_PREFIX + SPACE).length()));
             messageAssignmentsProvider = user;
             dao = UserDAO.getInstance();
         }
@@ -74,7 +77,7 @@ public class UserCommandHandler {
                                MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                BaseDAO<MessageAssignmentsProvider<T>> dao) throws Throwable {
         String temp = command.substring(ADD_PREFIX.length());
-        String content = GeneralUtils.trimSpaces(temp);
+        String content = trimSpaces(temp);
         if (content.isEmpty() || !temp.startsWith(SPACE)) {
             message.sendInThread(MessageService.get("badCommand"));
             return;
@@ -87,8 +90,8 @@ public class UserCommandHandler {
 
         if (content.contains(LINE_BREAK)) {
             int firstBreakIndex = content.indexOf(LINE_BREAK);
-            name = GeneralUtils.trimSpaces(content.substring(0, firstBreakIndex));
-            text = GeneralUtils.trimSpaces(content.substring(firstBreakIndex + LINE_BREAK.length()));
+            name = trimSpaces(content.substring(0, firstBreakIndex));
+            text = trimSpaces(content.substring(firstBreakIndex + LINE_BREAK.length()));
         } else {
             name = content;
         }
@@ -137,7 +140,7 @@ public class UserCommandHandler {
         msg.setId(messageId);
         msg.setText(text);
         msg.setFileInfos(fileInfos);
-        msg.setWorkspaceId(message.getWorkspace().getId());
+        msg.setWorkspaceKey(message.getWorkspace().getKey());
         msg.setConversationId(message.getConversationId());
         msg.setThreadRootId(threadRootId == null || threadRootId.equals(messageId) ? null : threadRootId);
         messageAssignmentsProvider.putInMessageAssignmentsMap(name, new MessageAssignment<>(name, messageAssignmentsProvider, msg));
@@ -168,14 +171,14 @@ public class UserCommandHandler {
                 .text(msg.getText())
                 .fileInfos(msg.getCreatedFileInfos());
 
-        GeneralUtils.sendInThreadOrConversation(message, conversation, messageBuilder);
+        sendInThreadOrConversation(message, conversation, messageBuilder);
     }
 
     private <T> void handleRemove(String command, Message message, String msgPrefix,
                                   MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                   BaseDAO<MessageAssignmentsProvider<T>> dao) throws Throwable {
         String notTrimmedName = command.substring(REMOVE_PREFIX.length());
-        String name = GeneralUtils.trimSpaces(notTrimmedName);
+        String name = trimSpaces(notTrimmedName);
         if (name.isEmpty()) {
             message.sendInThread(MessageService.get("noName"));
             return;
@@ -204,7 +207,7 @@ public class UserCommandHandler {
     }
 
     private void handleFeedback(String command, Message message) throws Throwable {
-        String feedbackText = GeneralUtils.trimSpaces(command.substring(FEEDBACK_PREFIX.length()));
+        String feedbackText = trimSpaces(command.substring(FEEDBACK_PREFIX.length()));
         List<MessageFile> fileInfos = message.getCreatedFileInfos();
         if (feedbackText.isEmpty() && fileInfos.isEmpty())
             return;
@@ -228,16 +231,30 @@ public class UserCommandHandler {
     private <T> List<String> generateMessagesListBatches(Map<String, MessageAssignment<T>> messageAssignmentsMap,
                                                          boolean isWorkspaceCommand) {
         List<String> batches = new ArrayList<>();
+        StringBuilder singleTextBuilder = new StringBuilder();
         StringBuilder listTextBuilder = new StringBuilder();
-        int counter = 0;
         for (String name : messageAssignmentsMap.keySet()) {
-            String getLinkTemplateKey = isWorkspaceCommand ? "getLinkTemplateForWorkspace" : "getLinkTemplateForUser";
-            listTextBuilder.append(LINE_BREAK)
-                    .append("- ").append(String.format(MessageService.get(getLinkTemplateKey), name));
-
             Message msg = messageAssignmentsMap.get(name).getMessage();
             if (msg instanceof HibernateProxy)
                 msg = (Message) Hibernate.unproxy(msg);
+
+            String directLink;
+            if (notEmpty(msg.getWorkspaceKey()) && notEmpty(msg.getConversationId()) && notEmpty(msg.getId())) {
+                String directLinkUri;
+                if (notEmpty(msg.getThreadRootId())) {
+                    directLinkUri = String.format(THREAD_DIRECT_LINK_URI_TEMPLATE,
+                            msg.getWorkspaceKey(), msg.getConversationId(), msg.getThreadRootId(), msg.getId());
+                } else {
+                    directLinkUri = String.format(DIRECT_LINK_URI_TEMPLATE,
+                            msg.getWorkspaceKey(), msg.getConversationId(), msg.getId());
+                }
+                directLink = String.format(MARKDOWN_LINK_TEMPLATE, LINK_EMOJI, concatUris(limooUrl, directLinkUri));
+            } else {
+                directLink = LINK_EMOJI;
+            }
+            String getLinkTemplateKey = isWorkspaceCommand ? "getLinkTemplateForWorkspace" : "getLinkTemplateForUser";
+            singleTextBuilder.append(LINE_BREAK)
+                    .append(directLink).append(SPACE).append(String.format(MessageService.get(getLinkTemplateKey), name));
 
             String text = msg.getText();
             String textPreview = text.length() > TEXT_PREVIEW_LEN ? text.substring(0, TEXT_PREVIEW_LEN) : text;
@@ -247,19 +264,21 @@ public class UserCommandHandler {
                 textPreview += "...";
 
             if (!textPreview.isEmpty())
-                listTextBuilder.append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
+                singleTextBuilder.append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
 
             int filesCount = msg.getCreatedFileInfos().size();
             if (filesCount > 0)
-                listTextBuilder.append(" - ").append(String.format(MessageService.get("filesTemplate"), filesCount));
+                singleTextBuilder.append(" - ").append(String.format(MessageService.get("filesTemplate"), filesCount));
 
-            counter += 1;
-            if (counter % MESSAGES_LIST_BATCH_SIZE == 0) {
+            if (singleTextBuilder.length() + listTextBuilder.length() > MAX_MESSAGE_LEN) {
                 batches.add(listTextBuilder.toString());
                 listTextBuilder = new StringBuilder();
             }
+
+            listTextBuilder.append(singleTextBuilder);
+            singleTextBuilder = new StringBuilder();
         }
-        if (!listTextBuilder.toString().isEmpty()) {
+        if (listTextBuilder.length() > 0) {
             batches.add(listTextBuilder.toString());
         }
         return batches;
@@ -279,14 +298,14 @@ public class UserCommandHandler {
         for (int i = 0; i < messagesListBatches.size(); i++) {
             String messagesListKey = i == 0 ? "messagesList" : "messagesListRest";
             String sendingText = msgPrefix + String.format(MessageService.get(messagesListKey), messagesListBatches.get(i));
-            GeneralUtils.sendInThreadOrConversation(message, conversation, sendingText);
+            sendInThreadOrConversation(message, conversation, sendingText);
         }
     }
 
     private <T> void handleUniqueResSearch(String command, Message message, Conversation conversation, String msgPrefix,
                                            MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
         String notTrimmedQuery = command.substring(UNIQUE_RES_SEARCH_PREFIX.length());
-        String query = GeneralUtils.trimSpaces(notTrimmedQuery);
+        String query = trimSpaces(notTrimmedQuery);
         if (query.isEmpty()) {
             message.sendInThread(MessageService.get("noQuery"));
             return;
@@ -326,14 +345,14 @@ public class UserCommandHandler {
                 .text(msg.getText())
                 .fileInfos(msg.getCreatedFileInfos());
 
-        GeneralUtils.sendInThreadOrConversation(message, conversation, messageBuilder);
+        sendInThreadOrConversation(message, conversation, messageBuilder);
     }
 
     private <T> void handleListResSearch(String command, Message message, Conversation conversation, String msgPrefix,
                                          MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                          boolean isWorkspaceCommand) throws LimooException {
         String notTrimmedQuery = command.substring(LIST_RES_SEARCH_PREFIX.length());
-        String query = GeneralUtils.trimSpaces(notTrimmedQuery);
+        String query = trimSpaces(notTrimmedQuery);
         if (query.isEmpty()) {
             message.sendInThread(MessageService.get("noQuery"));
             return;
@@ -374,7 +393,7 @@ public class UserCommandHandler {
         for (int i = 0; i < messagesListBatches.size(); i++) {
             String messagesListKey = i == 0 ? "filteredMessagesList" : "filteredMessagesListRest";
             String sendingText = msgPrefix + String.format(MessageService.get(messagesListKey), messagesListBatches.get(i));
-            GeneralUtils.sendInThreadOrConversation(message, conversation, sendingText);
+            sendInThreadOrConversation(message, conversation, sendingText);
         }
     }
 }

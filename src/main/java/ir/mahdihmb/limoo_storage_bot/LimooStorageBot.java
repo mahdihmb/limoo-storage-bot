@@ -16,13 +16,13 @@ import ir.mahdihmb.limoo_storage_bot.entity.User;
 import ir.mahdihmb.limoo_storage_bot.entity.Workspace;
 import ir.mahdihmb.limoo_storage_bot.handler.AdminCommandHandler;
 import ir.mahdihmb.limoo_storage_bot.handler.UserCommandHandler;
-import ir.mahdihmb.limoo_storage_bot.util.GeneralUtils;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
 import org.hibernate.HibernateException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
+import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
 
 public class LimooStorageBot {
 
@@ -49,8 +49,7 @@ public class LimooStorageBot {
         try {
             String reportWorkspaceKey = ConfigService.get("admin.reportWorkspaceKey");
             String reportConversationId = ConfigService.get("admin.reportConversationId");
-            if (reportWorkspaceKey != null && !reportWorkspaceKey.isEmpty()
-                    && reportConversationId != null && !reportConversationId.isEmpty()) {
+            if (notEmpty(reportWorkspaceKey) && notEmpty(reportConversationId)) {
                 ir.limoo.driver.entity.Workspace reportWorkspace = limooDriver.getWorkspaceByKey(reportWorkspaceKey);
                 if (reportWorkspace != null) {
                     reportConversation = reportWorkspace.getConversationById(reportConversationId);
@@ -60,7 +59,7 @@ public class LimooStorageBot {
             logger.error("", throwable);
         }
 
-        userCommandsHandler = new UserCommandHandler(reportConversation);
+        userCommandsHandler = new UserCommandHandler(limooUrl, reportConversation);
 
         try {
             String userId = ConfigService.get("admin.userId");
@@ -76,7 +75,7 @@ public class LimooStorageBot {
             @Override
             public void onNewMessage(Message message, Conversation conversation) {
                 try {
-                    String msgText = GeneralUtils.trimSpaces(message.getText());
+                    String msgText = trimSpaces(message.getText());
 
                     if (adminUserId != null && adminUserId.equals(message.getUserId()) && msgText.startsWith(ADMIN_COMMAND_PREFIX)) {
                         adminCommandHandler.handle(message, conversation);
@@ -104,7 +103,7 @@ public class LimooStorageBot {
 
                             directReplyMessage.setWorkspace(message.getWorkspace());
                             message = directReplyMessage;
-                            msgText = GeneralUtils.trimSpaces(message.getText());
+                            msgText = trimSpaces(message.getText());
                         }
                     }
 
@@ -176,7 +175,7 @@ public class LimooStorageBot {
                 try {
                     String reportMsg = MessageService.get("bugReportTextForAdmin") + LINE_BREAK
                             + "```java" + LINE_BREAK
-                            + GeneralUtils.getMessageOfThrowable(throwable) + LINE_BREAK
+                            + getMessageOfThrowable(throwable) + LINE_BREAK
                             + "```";
                     reportConversation.send(reportMsg);
                 } catch (LimooException e) {
