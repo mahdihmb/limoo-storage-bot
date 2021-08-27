@@ -35,7 +35,7 @@ public class Constants {
     public static final int MAX_NAME_LEN = 200;
     public static final int TEXT_PREVIEW_LEN = 70;
     public static final long ONE_HOUR_MILLIS = 60 * 60 * 1000;
-    public static final int MAX_MESSAGE_LEN = 8000;
+    public static final int MAX_MESSAGE_LEN = 7500;
 
     public static final String LINK_EMOJI = ":link:";
     public static final String MARKDOWN_LINK_TEMPLATE = "[%s](%s)";
