@@ -4,6 +4,8 @@ import ir.limoo.driver.entity.Conversation;
 import ir.limoo.driver.entity.Message;
 import ir.limoo.driver.exception.LimooException;
 
+import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
+
 public class GeneralUtils {
 
     public static String trimSpaces(String text) {
@@ -12,6 +14,14 @@ public class GeneralUtils {
 
     public static boolean notEmpty(String text) {
         return text != null && !text.isEmpty();
+    }
+
+    public static void sendErrorMsgInThread(Message message, String text) throws LimooException {
+        message.sendInThread(EXCLAMATION_EMOJI + SPACE + text);
+    }
+
+    public static void sendSuccessMsgInThread(Message message, String text) throws LimooException {
+        message.sendInThread(CHECK_MARK_EMOJI + SPACE + text);
     }
 
     public static String concatUris(String first, String second) {

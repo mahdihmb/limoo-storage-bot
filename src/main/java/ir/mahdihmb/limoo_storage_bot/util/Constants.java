@@ -12,8 +12,6 @@ public class Constants {
     public static final String SPACE = " ";
     public static final String BACK_QUOTE = "`";
     public static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
-    public static final String LIKE_REACTION = "+1";
-    public static final String DISLIKE_REACTION = "-1";
 
     public static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
     public static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "#";
@@ -37,7 +35,12 @@ public class Constants {
     public static final long ONE_HOUR_MILLIS = 60 * 60 * 1000;
     public static final int MAX_MESSAGE_LEN = 7500;
 
+    public static final String LIKE_REACTION = "+1";
+    public static final String DISLIKE_REACTION = "-1";
+    public static final String EXCLAMATION_EMOJI = ":exclamation:";
+    public static final String CHECK_MARK_EMOJI = ":white_check_mark:";
     public static final String LINK_EMOJI = ":link:";
+
     public static final String MARKDOWN_LINK_TEMPLATE = "[%s](%s)";
     public static final String DIRECT_LINK_URI_TEMPLATE = "workspace/%s/conversation/%s/message/%s";
     public static final String THREAD_DIRECT_LINK_URI_TEMPLATE = "workspace/%s/conversation/%s/thread/%s/message/%s";

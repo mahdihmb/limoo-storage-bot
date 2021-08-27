@@ -1,6 +1,5 @@
 package ir.mahdihmb.limoo_storage_bot.handler;
 
-import ir.limoo.driver.LimooDriver;
 import ir.limoo.driver.entity.Conversation;
 import ir.limoo.driver.entity.Message;
 import ir.limoo.driver.entity.MessageFile;
@@ -79,7 +78,7 @@ public class UserCommandHandler {
         String temp = command.substring(ADD_PREFIX.length());
         String content = trimSpaces(temp);
         if (content.isEmpty() || !temp.startsWith(SPACE)) {
-            message.sendInThread(MessageService.get("badCommand"));
+            sendErrorMsgInThread(message, MessageService.get("badCommand"));
             return;
         }
 
@@ -100,34 +99,34 @@ public class UserCommandHandler {
         String threadRootId = message.getThreadRootId();
         if (text.isEmpty() && fileInfos.isEmpty() && (directReplyMessageId == null || directReplyMessageId.isEmpty())) {
             if (threadRootId == null)
-                message.sendInThread(MessageService.get("emptyBodyAddCommandInConversation"));
+                sendErrorMsgInThread(message, MessageService.get("emptyBodyAddCommandInConversation"));
             else
-                message.sendInThread(MessageService.get("emptyBodyAddCommandInThread"));
+                sendErrorMsgInThread(message, MessageService.get("emptyBodyAddCommandInThread"));
             return;
         }
 
         if (name.isEmpty()) {
-            message.sendInThread(MessageService.get("noName"));
+            sendErrorMsgInThread(message, MessageService.get("noName"));
             return;
         } else if (name.length() > MAX_NAME_LEN) {
-            message.sendInThread(String.format(MessageService.get("tooLongName"), MAX_NAME_LEN));
+            sendErrorMsgInThread(message, String.format(MessageService.get("tooLongName"), MAX_NAME_LEN));
             return;
         } else if (ILLEGAL_NAME_PATTERN.matcher(name).matches()) {
-            message.sendInThread(MessageService.get("illegalName"));
+            sendErrorMsgInThread(message, MessageService.get("illegalName"));
             return;
         }
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(msgPrefix + MessageService.get("nameExists"));
+            sendErrorMsgInThread(message, msgPrefix + MessageService.get("nameExists"));
             return;
         }
 
         if (text.isEmpty() && fileInfos.isEmpty()) {
             Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), conversation.getId(), directReplyMessageId);
             if (directReplyMessage == null) {
-                message.sendInThread(MessageService.get("noDirectReplyMessage"));
+                sendErrorMsgInThread(message, MessageService.get("noDirectReplyMessage"));
                 return;
             }
 
@@ -145,7 +144,7 @@ public class UserCommandHandler {
         msg.setThreadRootId(threadRootId == null || threadRootId.equals(messageId) ? null : threadRootId);
         messageAssignmentsProvider.putInMessageAssignmentsMap(name, new MessageAssignment<>(name, messageAssignmentsProvider, msg));
         dao.update(messageAssignmentsProvider);
-        message.sendInThread(msgPrefix + MessageService.get("messageAdded"));
+        sendSuccessMsgInThread(message, msgPrefix + MessageService.get("messageAdded"));
     }
 
     private <T> void handleGet(String name, Message message, Conversation conversation, String msgPrefix,
@@ -159,7 +158,7 @@ public class UserCommandHandler {
         }
 
         if (!messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(msgPrefix + MessageService.get("noSuchMessage"));
+            sendErrorMsgInThread(message, msgPrefix + MessageService.get("noSuchMessage"));
             return;
         }
 
@@ -180,11 +179,11 @@ public class UserCommandHandler {
         String notTrimmedName = command.substring(REMOVE_PREFIX.length());
         String name = trimSpaces(notTrimmedName);
         if (name.isEmpty()) {
-            message.sendInThread(MessageService.get("noName"));
+            sendErrorMsgInThread(message, MessageService.get("noName"));
             return;
         }
         if (!notTrimmedName.startsWith(SPACE)) {
-            message.sendInThread(MessageService.get("badCommand"));
+            sendErrorMsgInThread(message, MessageService.get("badCommand"));
             return;
         }
 
@@ -197,13 +196,13 @@ public class UserCommandHandler {
         }
 
         if (!messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(msgPrefix + MessageService.get("noSuchMessage"));
+            sendErrorMsgInThread(message, msgPrefix + MessageService.get("noSuchMessage"));
             return;
         }
 
         messageAssignmentsProvider.removeFromMessageAssignmentsMap(name);
         dao.update(messageAssignmentsProvider);
-        message.sendInThread(msgPrefix + MessageService.get("messageRemoved"));
+        sendSuccessMsgInThread(message, msgPrefix + MessageService.get("messageRemoved"));
     }
 
     private void handleFeedback(String command, Message message) throws Throwable {
@@ -213,7 +212,7 @@ public class UserCommandHandler {
             return;
 
         if (reportConversation == null) {
-            message.sendInThread(MessageService.get("feedbackNotSupported"));
+            sendErrorMsgInThread(message, MessageService.get("feedbackNotSupported"));
             return;
         }
 
@@ -225,7 +224,7 @@ public class UserCommandHandler {
                 .text(reportMsg)
                 .fileInfos(fileInfos);
         reportConversation.send(messageBuilder);
-        message.sendInThread(MessageService.get("feedbackSent"));
+        sendSuccessMsgInThread(message, MessageService.get("feedbackSent"));
     }
 
     private <T> List<String> generateMessagesListBatches(Map<String, MessageAssignment<T>> messageAssignmentsMap,
@@ -307,11 +306,11 @@ public class UserCommandHandler {
         String notTrimmedQuery = command.substring(UNIQUE_RES_SEARCH_PREFIX.length());
         String query = trimSpaces(notTrimmedQuery);
         if (query.isEmpty()) {
-            message.sendInThread(MessageService.get("noQuery"));
+            sendErrorMsgInThread(message, MessageService.get("noQuery"));
             return;
         }
         if (!notTrimmedQuery.startsWith(SPACE)) {
-            message.sendInThread(MessageService.get("badCommand"));
+            sendErrorMsgInThread(message, MessageService.get("badCommand"));
             return;
         }
 
@@ -354,11 +353,11 @@ public class UserCommandHandler {
         String notTrimmedQuery = command.substring(LIST_RES_SEARCH_PREFIX.length());
         String query = trimSpaces(notTrimmedQuery);
         if (query.isEmpty()) {
-            message.sendInThread(MessageService.get("noQuery"));
+            sendErrorMsgInThread(message, MessageService.get("noQuery"));
             return;
         }
         if (!notTrimmedQuery.startsWith(SPACE)) {
-            message.sendInThread(MessageService.get("badCommand"));
+            sendErrorMsgInThread(message, MessageService.get("badCommand"));
             return;
         }
 

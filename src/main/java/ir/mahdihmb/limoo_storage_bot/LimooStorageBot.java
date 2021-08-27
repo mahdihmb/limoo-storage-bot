@@ -97,7 +97,7 @@ public class LimooStorageBot {
 
                             Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), conversation.getId(), directReplyMessageId);
                             if (directReplyMessage == null) {
-                                message.sendInThread(MessageService.get("noDirectReplyMessage"));
+                                sendErrorMsgInThread(message, MessageService.get("noDirectReplyMessage"));
                                 return;
                             }
 
