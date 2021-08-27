@@ -3,81 +3,38 @@ package ir.mahdihmb.limoo_storage_bot;
 import ir.limoo.driver.LimooDriver;
 import ir.limoo.driver.entity.Conversation;
 import ir.limoo.driver.entity.Message;
-import ir.limoo.driver.entity.MessageFile;
 import ir.limoo.driver.event.AddedToConversationEventListener;
 import ir.limoo.driver.event.AddedToWorkspaceEventListener;
 import ir.limoo.driver.event.MessageCreatedEventListener;
 import ir.limoo.driver.exception.LimooException;
 import ir.mahdihmb.limoo_storage_bot.core.ConfigService;
-import ir.mahdihmb.limoo_storage_bot.core.CoreManager;
 import ir.mahdihmb.limoo_storage_bot.core.HibernateSessionManager;
 import ir.mahdihmb.limoo_storage_bot.core.MessageService;
-import ir.mahdihmb.limoo_storage_bot.dao.BaseDAO;
 import ir.mahdihmb.limoo_storage_bot.dao.UserDAO;
 import ir.mahdihmb.limoo_storage_bot.dao.WorkspaceDAO;
-import ir.mahdihmb.limoo_storage_bot.entity.MessageAssignment;
-import ir.mahdihmb.limoo_storage_bot.entity.MessageAssignmentsProvider;
 import ir.mahdihmb.limoo_storage_bot.entity.User;
 import ir.mahdihmb.limoo_storage_bot.entity.Workspace;
+import ir.mahdihmb.limoo_storage_bot.handler.AdminCommandHandler;
+import ir.mahdihmb.limoo_storage_bot.handler.UserCommandHandler;
+import ir.mahdihmb.limoo_storage_bot.util.GeneralUtils;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
-import org.hibernate.Hibernate;
 import org.hibernate.HibernateException;
-import org.hibernate.proxy.HibernateProxy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
 
 public class LimooStorageBot {
 
     private static final transient Logger logger = LoggerFactory.getLogger(LimooStorageBot.class);
 
-    private static final String PERSIAN_QUESTION_MARK = MessageService.get("questionMark");
-    private static final String LINE_BREAK = "\n";
-    private static final String LINE_BREAKS_REGEX = "[\r\n]";
-    private static final String SPACE = " ";
-    private static final String BACK_QUOTE = "`";
-    private static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
-    private static final String LIKE_REACTION = "+1";
-    private static final String DISLIKE_REACTION = "-1";
-
-    private static final String COMMAND_PREFIX = MessageService.get("commandPrefix");
-    private static final String WORKSPACE_COMMAND_PREFIX = COMMAND_PREFIX + "#";
-    private static final String ADD_PREFIX = "+ ";
-    private static final String REMOVE_PREFIX = "- ";
-    private static final String FEEDBACK_PREFIX = "!";
-    private static final String LIST_PREFIX = "*";
-    private static final String UNIQUE_RES_SEARCH_PREFIX = "? ";
-    private static final String UNIQUE_RES_SEARCH_PREFIX_PERSIAN = String.format("%s ", PERSIAN_QUESTION_MARK);
-    private static final String LIST_RES_SEARCH_PREFIX = "?? ";
-    private static final String LIST_RES_SEARCH_PREFIX_PERSIAN = String.format("%1$s%1$s ", PERSIAN_QUESTION_MARK);
-
-    private static final String ADMIN_COMMAND_PREFIX = MessageService.get("adminCommandPrefix");
-    private static final String ADMIN_SEND_HELP_IN_LOBBY_COMMAND = MessageService.get("adminSendHelpInLobbyCommand");
-    private static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminSendUpdateInLobbyCommandPrefix");
-    private static final String ADMIN_RESTART_POSTGRESQL_COMMAND = MessageService.get("adminRestartPostgresqlCommand");
-    private static final String ADMIN_REPORT_COMMAND = MessageService.get("adminReportCommand");
-
-    private static final int MAX_NAME_LEN = 200;
-    private static final int TEXT_PREVIEW_LEN = 70;
-    private static final long ONE_HOUR_MILLIS = 60 * 60 * 1000;
-    private static final int MESSAGES_LIST_BATCH_SIZE = 20;
-
     private final LimooDriver limooDriver;
     private final String helpMsg;
+    private final AdminCommandHandler adminCommandHandler;
+    private final UserCommandHandler userCommandsHandler;
     private Conversation reportConversation;
     private long lastTimeSentBugReport = 0;
     private String adminUserId;
-    private String restartPostgresScriptFile;
 
     public LimooStorageBot(String limooUrl, String botUsername, String botPassword) throws LimooException {
         limooDriver = new LimooDriver(limooUrl, botUsername, botPassword);
@@ -86,6 +43,8 @@ public class LimooStorageBot {
                 limooDriver.getBot().getDisplayName(),
                 ConfigService.get("repo.address")
         );
+
+        adminCommandHandler = new AdminCommandHandler(limooDriver, helpMsg);
 
         try {
             String reportWorkspaceKey = ConfigService.get("admin.reportWorkspaceKey");
@@ -101,6 +60,8 @@ public class LimooStorageBot {
             logger.error("", throwable);
         }
 
+        userCommandsHandler = new UserCommandHandler(reportConversation);
+
         try {
             String userId = ConfigService.get("admin.userId");
             if (!userId.isEmpty())
@@ -108,27 +69,17 @@ public class LimooStorageBot {
         } catch (Throwable throwable) {
             logger.error("", throwable);
         }
-
-        try {
-            String scriptFile = ConfigService.get("admin.restartPostgresScriptFile");
-            if (!scriptFile.isEmpty())
-                restartPostgresScriptFile = scriptFile;
-        } catch (Throwable throwable) {
-            logger.error("", throwable);
-        }
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     public void run() {
         limooDriver.addEventListener(new MessageCreatedEventListener() {
             @Override
             public void onNewMessage(Message message, Conversation conversation) {
                 try {
-                    String msgText = message.getText().trim();
+                    String msgText = GeneralUtils.trimSpaces(message.getText());
 
                     if (adminUserId != null && adminUserId.equals(message.getUserId()) && msgText.startsWith(ADMIN_COMMAND_PREFIX)) {
-                        String command = msgText.substring((ADMIN_COMMAND_PREFIX).length()).trim();
-                        handleAdminCommands(command, message, conversation);
+                        adminCommandHandler.handle(message, conversation);
                         return;
                     }
 
@@ -153,7 +104,7 @@ public class LimooStorageBot {
 
                             directReplyMessage.setWorkspace(message.getWorkspace());
                             message = directReplyMessage;
-                            msgText = message.getText().trim();
+                            msgText = GeneralUtils.trimSpaces(message.getText());
                         }
                     }
 
@@ -171,61 +122,10 @@ public class LimooStorageBot {
                     User user = UserDAO.getInstance().getOrCreate(message.getUserId());
                     Workspace workspace = WorkspaceDAO.getInstance().getOrCreate(message.getWorkspace().getId());
 
-                    String command;
-                    MessageAssignmentsProvider<?> messageAssignmentsProvider;
-                    BaseDAO dao;
-                    String msgPrefix = "";
-                    boolean isWorkspaceCommand = false;
-                    if (msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
-                        command = msgText.substring((WORKSPACE_COMMAND_PREFIX + SPACE).length()).trim();
-                        messageAssignmentsProvider = workspace;
-                        dao = WorkspaceDAO.getInstance();
-                        msgPrefix = MessageService.get("workspaceListIndicator") + SPACE;
-                        isWorkspaceCommand = true;
-                    } else {
-                        command = msgText.substring((COMMAND_PREFIX + SPACE).length()).trim();
-                        messageAssignmentsProvider = user;
-                        dao = UserDAO.getInstance();
-                    }
-
-                    if (command.startsWith(ADD_PREFIX)) {
-                        handleAdd(command, message, conversation, msgPrefix, messageAssignmentsProvider, dao);
-                    } else if (command.startsWith(REMOVE_PREFIX)) {
-                        handleRemove(command, message, msgPrefix, messageAssignmentsProvider, dao);
-                    } else if (command.startsWith(FEEDBACK_PREFIX)) {
-                        handleFeedback(command, message);
-                    } else if (command.startsWith(LIST_PREFIX)) {
-                        handleList(message, conversation, msgPrefix, messageAssignmentsProvider, isWorkspaceCommand);
-                    } else if (command.startsWith(UNIQUE_RES_SEARCH_PREFIX) || command.startsWith(UNIQUE_RES_SEARCH_PREFIX_PERSIAN)) {
-                        handleUniqueResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider);
-                    } else if (command.startsWith(LIST_RES_SEARCH_PREFIX) || command.startsWith(LIST_RES_SEARCH_PREFIX_PERSIAN)) {
-                        handleListResSearch(command, message, conversation, msgPrefix, messageAssignmentsProvider, isWorkspaceCommand);
-                    } else if (!ILLEGAL_NAME_PATTERN.matcher(command).matches()) {
-                        handleGet(command, message, conversation, msgPrefix, messageAssignmentsProvider);
-                    }
+                    userCommandsHandler.handle(message, conversation, user, workspace);
                 } catch (Throwable throwable) {
                     logger.error("", throwable);
-                    if (throwable instanceof HibernateException) {
-                        try {
-                            message.sendInThread(MessageService.get("bugReportTextForUser"));
-                        } catch (LimooException e) {
-                            logger.error("", e);
-                        }
-
-                        long now = System.currentTimeMillis();
-                        if (reportConversation != null && now > lastTimeSentBugReport + ONE_HOUR_MILLIS) {
-                            try {
-                                String reportMsg = MessageService.get("bugReportTextForAdmin") + LINE_BREAK
-                                        + "```java" + LINE_BREAK
-                                        + getMessageOfThrowable(throwable) + LINE_BREAK
-                                        + "```";
-                                reportConversation.send(reportMsg);
-                            } catch (LimooException e) {
-                                logger.error("", e);
-                            }
-                            lastTimeSentBugReport = now;
-                        }
-                    }
+                    handleException(message, throwable);
                 } finally {
                     HibernateSessionManager.closeCurrentSession();
                     conversation.viewLog();
@@ -263,392 +163,27 @@ public class LimooStorageBot {
             message.sendInThread(helpMsg);
     }
 
-    private <T> void handleAdd(String command, Message message, Conversation conversation, String msgPrefix,
-                               MessageAssignmentsProvider<T> messageAssignmentsProvider,
-                               BaseDAO<MessageAssignmentsProvider<T>> dao) throws Throwable {
-        String content = command.substring(ADD_PREFIX.length()).trim();
-        if (content.isEmpty()) {
-            message.sendInThread(MessageService.get("badAddCommand"));
-            return;
-        }
-
-        String name;
-        String text = "";
-        List<MessageFile> fileInfos = message.getCreatedFileInfos();
-        String messageId = message.getId();
-
-        if (content.contains(LINE_BREAK)) {
-            int firstBreakIndex = content.indexOf(LINE_BREAK);
-            name = content.substring(0, firstBreakIndex).trim();
-            text = content.substring(firstBreakIndex + LINE_BREAK.length()).trim();
-        } else {
-            name = content;
-        }
-
-        String directReplyMessageId = message.getDirectReplyMessageId();
-        if (text.isEmpty() && fileInfos.isEmpty() && (directReplyMessageId == null || directReplyMessageId.isEmpty())) {
-            message.sendInThread(MessageService.get("badAddCommand"));
-            return;
-        }
-
-        if (name.isEmpty()) {
-            message.sendInThread(MessageService.get("noName"));
-            return;
-        } else if (name.length() > MAX_NAME_LEN) {
-            message.sendInThread(String.format(MessageService.get("tooLongName"), MAX_NAME_LEN));
-            return;
-        } else if (ILLEGAL_NAME_PATTERN.matcher(name).matches()) {
-            message.sendInThread(MessageService.get("illegalName"));
-            return;
-        }
-
-        Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
-                = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
-        if (messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(msgPrefix + MessageService.get("nameExists"));
-            return;
-        }
-
-        if (text.isEmpty() && fileInfos.isEmpty()) {
-            Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), conversation.getId(), directReplyMessageId);
-            if (directReplyMessage == null) {
-                message.sendInThread(MessageService.get("noDirectReplyMessage"));
-                return;
-            }
-
-            messageId = directReplyMessageId;
-            text = directReplyMessage.getText();
-            fileInfos = directReplyMessage.getCreatedFileInfos();
-        }
-
-        Message msg = new Message();
-        msg.setId(messageId);
-        msg.setText(text);
-        msg.setFileInfos(fileInfos);
-        msg.setWorkspaceId(message.getWorkspace().getId());
-        msg.setConversationId(message.getConversationId());
-        String threadRootId = message.getThreadRootId();
-        msg.setThreadRootId(threadRootId == null || threadRootId.equals(messageId) ? null : threadRootId);
-        messageAssignmentsProvider.putInMessageAssignmentsMap(name, new MessageAssignment<>(name, messageAssignmentsProvider, msg));
-        dao.update(messageAssignmentsProvider);
-        message.sendInThread(msgPrefix + MessageService.get("messageAdded"));
-    }
-
-    private <T> void handleGet(String name, Message message, Conversation conversation, String msgPrefix,
-                               MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
-        Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
-                = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
-
-        if (messageAssignmentsMap.isEmpty()) {
-            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
-            return;
-        }
-
-        if (!messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(msgPrefix + MessageService.get("noSuchMessage"));
-            return;
-        }
-
-        Message msg = messageAssignmentsMap.get(name).getMessage();
-        if (msg instanceof HibernateProxy)
-            msg = (Message) Hibernate.unproxy(msg);
-
-        Message.Builder messageBuilder = new Message.Builder()
-                .text(msg.getText())
-                .fileInfos(msg.getCreatedFileInfos());
-
-        sendInThreadOrConversation(message, conversation, messageBuilder);
-    }
-
-    private <T> void handleRemove(String command, Message message, String msgPrefix,
-                                  MessageAssignmentsProvider<T> messageAssignmentsProvider,
-                                  BaseDAO<MessageAssignmentsProvider<T>> dao) throws Throwable {
-        String name = command.substring(REMOVE_PREFIX.length()).trim();
-        Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
-                = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
-
-        if (messageAssignmentsMap.isEmpty()) {
-            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
-            return;
-        }
-
-        if (!messageAssignmentsMap.containsKey(name)) {
-            message.sendInThread(msgPrefix + MessageService.get("noSuchMessage"));
-            return;
-        }
-
-        messageAssignmentsProvider.removeFromMessageAssignmentsMap(name);
-        dao.update(messageAssignmentsProvider);
-        message.sendInThread(msgPrefix + MessageService.get("messageRemoved"));
-    }
-
-    private void handleFeedback(String command, Message message) throws Throwable {
-        String feedbackText = command.substring(FEEDBACK_PREFIX.length()).trim();
-        List<MessageFile> fileInfos = message.getCreatedFileInfos();
-        if (feedbackText.isEmpty() && fileInfos.isEmpty())
-            return;
-
-        if (reportConversation == null) {
-            message.sendInThread(MessageService.get("feedbackNotSupported"));
-            return;
-        }
-
-        ir.limoo.driver.entity.User user = RequestUtils.getUser(message.getWorkspace(), message.getUserId());
-        String userDisplayName = user != null ? user.getDisplayName() : MessageService.get("unknownUser");
-        String reportMsg = String.format(MessageService.get("feedbackReportTextForAdmin"), userDisplayName)
-                + LINE_BREAK + feedbackText;
-        Message.Builder messageBuilder = new Message.Builder()
-                .text(reportMsg)
-                .fileInfos(fileInfos);
-        reportConversation.send(messageBuilder);
-        message.sendInThread(MessageService.get("feedbackSent"));
-    }
-
-    private <T> List<String> generateMessagesListBatches(Map<String, MessageAssignment<T>> messageAssignmentsMap,
-                                                boolean isWorkspaceCommand) {
-        List<String> batches = new ArrayList<>();
-        StringBuilder listTextBuilder = new StringBuilder();
-        int counter = 0;
-        for (String name : messageAssignmentsMap.keySet()) {
-            String getLinkTemplateKey = isWorkspaceCommand ? "getLinkTemplateForWorkspace" : "getLinkTemplateForUser";
-            listTextBuilder.append(LINE_BREAK)
-                    .append("- ").append(String.format(MessageService.get(getLinkTemplateKey), name));
-
-            Message msg = messageAssignmentsMap.get(name).getMessage();
-            if (msg instanceof HibernateProxy)
-                msg = (Message) Hibernate.unproxy(msg);
-
-            String text = msg.getText();
-            String textPreview = text.length() > TEXT_PREVIEW_LEN ? text.substring(0, TEXT_PREVIEW_LEN) : text;
-            textPreview = textPreview.replaceAll(LINE_BREAKS_REGEX, SPACE);
-            textPreview = textPreview.replaceAll(BACK_QUOTE, "");
-            if (text.length() > textPreview.length())
-                textPreview += "...";
-
-            if (!textPreview.isEmpty())
-                listTextBuilder.append(" - ").append(String.format(MessageService.get("textTemplate"), textPreview));
-
-            int filesCount = msg.getCreatedFileInfos().size();
-            if (filesCount > 0)
-                listTextBuilder.append(" - ").append(String.format(MessageService.get("filesTemplate"), filesCount));
-
-            counter += 1;
-            if (counter % MESSAGES_LIST_BATCH_SIZE == 0) {
-                batches.add(listTextBuilder.toString());
-                listTextBuilder = new StringBuilder();
-            }
-        }
-        if (!listTextBuilder.toString().isEmpty()) {
-            batches.add(listTextBuilder.toString());
-        }
-        return batches;
-    }
-
-    private <T> void handleList(Message message, Conversation conversation, String msgPrefix,
-                                MessageAssignmentsProvider<T> messageAssignmentsProvider,
-                                boolean isWorkspaceCommand) throws LimooException {
-        Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
-                = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
-        if (messageAssignmentsMap.isEmpty()) {
-            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
-            return;
-        }
-
-        List<String> messagesListBatches = generateMessagesListBatches(messageAssignmentsMap, isWorkspaceCommand);
-        for (int i = 0; i < messagesListBatches.size(); i++) {
-            String messagesListKey = i == 0 ? "messagesList" : "messagesListRest";
-            String sendingText = msgPrefix + String.format(MessageService.get(messagesListKey), messagesListBatches.get(i));
-            sendInThreadOrConversation(message, conversation, sendingText);
-        }
-    }
-
-    private <T> void handleUniqueResSearch(String command, Message message, Conversation conversation, String msgPrefix,
-                                           MessageAssignmentsProvider<T> messageAssignmentsProvider) throws LimooException {
-        Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
-                = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
-        if (messageAssignmentsMap.isEmpty()) {
-            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
-            return;
-        }
-
-        String query = command.substring(UNIQUE_RES_SEARCH_PREFIX.length()).trim();
-        String[] keywords = query.split(" +");
-        String foundName = messageAssignmentsMap.keySet().stream()
-                .filter(name -> {
-                    for (String keyword : keywords) {
-                        if (!name.toLowerCase().contains(keyword.toLowerCase()))
-                            return false;
-                    }
-                    return true;
-                })
-                .findAny().orElse(null);
-        if (foundName == null) {
-            message.sendInThread(msgPrefix + MessageService.get("noMatches"));
-            return;
-        }
-
-        Message msg = messageAssignmentsMap.get(foundName).getMessage();
-        if (msg instanceof HibernateProxy)
-            msg = (Message) Hibernate.unproxy(msg);
-
-        Message.Builder messageBuilder = new Message.Builder()
-                .text(msg.getText())
-                .fileInfos(msg.getCreatedFileInfos());
-
-        sendInThreadOrConversation(message, conversation, messageBuilder);
-    }
-
-    private <T> void handleListResSearch(String command, Message message, Conversation conversation, String msgPrefix,
-                                         MessageAssignmentsProvider<T> messageAssignmentsProvider,
-                                         boolean isWorkspaceCommand) throws LimooException {
-        Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
-                = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
-        if (messageAssignmentsMap.isEmpty()) {
-            message.sendInThread(msgPrefix + MessageService.get("dontHaveAnyMessages"));
-            return;
-        }
-
-        String query = command.substring(LIST_RES_SEARCH_PREFIX.length()).trim();
-        String[] keywords = query.split(" +");
-        List<String> foundNames = messageAssignmentsMap.keySet().stream()
-                .filter(name -> {
-                    for (String keyword : keywords) {
-                        if (!name.toLowerCase().contains(keyword.toLowerCase()))
-                            return false;
-                    }
-                    return true;
-                })
-                .collect(Collectors.toList());
-        if (foundNames.isEmpty()) {
-            message.sendInThread(msgPrefix + MessageService.get("noMatches"));
-            return;
-        }
-
-        Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> filteredMessageAssignmentsMap = new HashMap<>();
-        for (String foundName : foundNames) {
-            filteredMessageAssignmentsMap.put(foundName, messageAssignmentsMap.get(foundName));
-        }
-
-        List<String> messagesListBatches = generateMessagesListBatches(filteredMessageAssignmentsMap, isWorkspaceCommand);
-        for (int i = 0; i < messagesListBatches.size(); i++) {
-            String messagesListKey = i == 0 ? "filteredMessagesList" : "filteredMessagesListRest";
-            String sendingText = msgPrefix + String.format(MessageService.get(messagesListKey), messagesListBatches.get(i));
-            sendInThreadOrConversation(message, conversation, sendingText);
-        }
-    }
-
-    private void sendInThreadOrConversation(Message message, Conversation conversation, String sendingText) throws LimooException {
-        if (message.getThreadRootId() == null)
-            conversation.send(sendingText);
-        else
-            message.sendInThread(sendingText);
-    }
-
-    private void sendInThreadOrConversation(Message message, Conversation conversation, Message.Builder messageBuilder) throws LimooException {
-        if (message.getThreadRootId() == null)
-            conversation.send(messageBuilder);
-        else
-            message.sendInThread(messageBuilder);
-    }
-
-    private void handleAdminCommands(String command, Message message, Conversation conversation) throws Throwable {
-        if (command.isEmpty()) {
-            conversation.send(MessageService.get("adminHelp"));
-        } else if (command.equals(ADMIN_SEND_HELP_IN_LOBBY_COMMAND)) {
-            for (ir.limoo.driver.entity.Workspace workspace : limooDriver.getWorkspaces()) {
-                workspace.getDefaultConversation().send(helpMsg);
-            }
-            RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
-        } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
-            if (restartPostgresScriptFile == null) {
-                message.sendInThread(MessageService.get("noScriptSpecified"));
-                return;
-            }
-
-            SendMessageWithReaction onResult = (msg, reaction) -> {
-                RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), reaction);
-                message.sendInThread(msg);
-            };
-
+    private void handleException(Message message, Throwable throwable) {
+        if (throwable instanceof HibernateException) {
             try {
-                ProcessBuilder processBuilder = new ProcessBuilder();
-                processBuilder.command(restartPostgresScriptFile);
-                Process process = processBuilder.start();
+                message.sendInThread(MessageService.get("bugReportTextForUser"));
+            } catch (LimooException e) {
+                logger.error("", e);
+            }
 
+            long now = System.currentTimeMillis();
+            if (reportConversation != null && now > lastTimeSentBugReport + ONE_HOUR_MILLIS) {
                 try {
-                    InputStream inputStream;
-                    String reaction;
-                    if (process.waitFor() == 0) {
-                        CoreManager.reInitDatabaseInRuntime();
-                        inputStream = process.getInputStream();
-                        reaction = LIKE_REACTION;
-                    } else {
-                        inputStream = process.getErrorStream();
-                        reaction = DISLIKE_REACTION;
-                    }
-
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-                    StringBuilder output = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        output.append(line).append(LINE_BREAK);
-                    }
-                    onResult.apply("```" + LINE_BREAK + output + LINE_BREAK + "```", reaction);
-                } catch (InterruptedException e) {
-                    onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
+                    String reportMsg = MessageService.get("bugReportTextForAdmin") + LINE_BREAK
+                            + "```java" + LINE_BREAK
+                            + GeneralUtils.getMessageOfThrowable(throwable) + LINE_BREAK
+                            + "```";
+                    reportConversation.send(reportMsg);
+                } catch (LimooException e) {
+                    logger.error("", e);
                 }
-            } catch (IOException e) {
-                onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
+                lastTimeSentBugReport = now;
             }
-        } else if (command.equals(ADMIN_REPORT_COMMAND)) {
-            HibernateSessionManager.openSession();
-            StringBuilder report = new StringBuilder();
-
-            Map<String, ir.limoo.driver.entity.Workspace> workspaceIdsMap = new HashMap<>();
-            for (ir.limoo.driver.entity.Workspace workspace : limooDriver.getWorkspaces()) {
-                workspaceIdsMap.put(workspace.getId(), workspace);
-            }
-            report.append(MessageService.get("workspaces")).append(LINE_BREAK);
-            for (Workspace workspace : WorkspaceDAO.getInstance().list()) {
-                report.append("- ").append(workspaceIdsMap.get((String) workspace.getId()).getDisplayName())
-                        .append(SPACE).append("(").append(workspace.getCreatedMessageAssignmentsMap().size()).append(")")
-                        .append(LINE_BREAK);
-            }
-
-            Map<String, Integer> idUsageMap = new HashMap<>();
-            for (User user : UserDAO.getInstance().list()) {
-                idUsageMap.put((String) user.getId(), user.getCreatedMessageAssignmentsMap().size());
-            }
-            report.append(MessageService.get("users")).append(LINE_BREAK);
-            for (ir.limoo.driver.entity.User user : RequestUtils.getUsersByIds(message.getWorkspace(), idUsageMap.keySet())) {
-                report.append("- ").append(user.getDisplayName())
-                        .append(SPACE).append("(").append(idUsageMap.get(user.getId())).append(")")
-                        .append(LINE_BREAK);
-            }
-
-            message.sendInThread(report.toString());
-        } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
-            String text = command.substring(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX.length()).trim();
-            List<MessageFile> fileInfos = message.getCreatedFileInfos();
-            if (text.isEmpty() && fileInfos.isEmpty()) {
-                RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), DISLIKE_REACTION);
-                return;
-            }
-
-            Message.Builder messageBuilder = new Message.Builder().text(text).fileInfos(fileInfos);
-            for (ir.limoo.driver.entity.Workspace workspace : limooDriver.getWorkspaces()) {
-                workspace.getDefaultConversation().send(messageBuilder);
-            }
-            RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
         }
-    }
-
-    private String getMessageOfThrowable(Throwable throwable) {
-        return throwable.getClass().getName() + ": " + throwable.getMessage();
-    }
-
-    @FunctionalInterface
-    private interface SendMessageWithReaction {
-        void apply(String msg, String reaction) throws LimooException;
     }
 }
