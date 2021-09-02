@@ -29,7 +29,7 @@ public class Constants {
     public static final String ADMIN_COMMAND_PREFIX = MessageService.get("adminCommandPrefix");
     public static final String ADMIN_RESTART_POSTGRESQL_COMMAND = MessageService.get("adminRestartPostgresqlCommand");
     public static final String ADMIN_REPORT_COMMAND = MessageService.get("adminReportCommand");
-    public static final String ADMIN_SEND_HELP_IN_LOBBY_COMMAND = MessageService.get("adminSendHelpInLobbyCommand");
+    public static final String ADMIN_SEND_INTRODUCTION_IN_LOBBY_COMMAND = MessageService.get("adminSendIntroductionInLobbyCommand");
     public static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminSendUpdateInLobbyCommandPrefix");
     public static final String ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX = MessageService.get("adminResponseToFeedbackCommandPrefix");
 

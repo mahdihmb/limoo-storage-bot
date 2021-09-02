@@ -37,12 +37,10 @@ public class AdminCommandHandler {
     private static final transient Logger logger = LoggerFactory.getLogger(AdminCommandHandler.class);
 
     private final LimooDriver limooDriver;
-    private final String helpMsg;
     private String restartPostgresScriptFile;
 
-    public AdminCommandHandler(LimooDriver limooDriver, String helpMsg) {
+    public AdminCommandHandler(LimooDriver limooDriver) {
         this.limooDriver = limooDriver;
-        this.helpMsg = helpMsg;
 
         try {
             String scriptFile = ConfigService.get("admin.restartPostgresScriptFile");
@@ -58,8 +56,8 @@ public class AdminCommandHandler {
         String command = trimSpaces(msgText.substring((ADMIN_COMMAND_PREFIX).length()));
         if (command.isEmpty()) {
             handleHelp(conversation);
-        } else if (command.equals(ADMIN_SEND_HELP_IN_LOBBY_COMMAND)) {
-            handleSendHelpInLobby(message, conversation);
+        } else if (command.equals(ADMIN_SEND_INTRODUCTION_IN_LOBBY_COMMAND)) {
+            handleSendIntroductionInLobby(message, conversation);
         } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
             handleRestartPostgresql(message, conversation);
         } else if (command.equals(ADMIN_REPORT_COMMAND)) {
@@ -75,9 +73,9 @@ public class AdminCommandHandler {
         conversation.send(MessageService.get("adminHelp"));
     }
 
-    private void handleSendHelpInLobby(Message message, Conversation conversation) throws LimooException {
+    private void handleSendIntroductionInLobby(Message message, Conversation conversation) throws LimooException {
         for (Workspace workspace : limooDriver.getWorkspaces()) {
-            workspace.getDefaultConversation().send(helpMsg);
+            workspace.getDefaultConversation().send(MessageService.get("introduction"));
         }
         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
     }

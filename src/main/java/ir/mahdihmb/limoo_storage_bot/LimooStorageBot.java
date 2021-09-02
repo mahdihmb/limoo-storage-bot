@@ -29,7 +29,6 @@ public class LimooStorageBot {
     private static final transient Logger logger = LoggerFactory.getLogger(LimooStorageBot.class);
 
     private final LimooDriver limooDriver;
-    private final String helpMsg;
     private final AdminCommandHandler adminCommandHandler;
     private final UserCommandHandler userCommandsHandler;
     private Conversation reportConversation;
@@ -38,13 +37,8 @@ public class LimooStorageBot {
 
     public LimooStorageBot(String limooUrl, String botUsername, String botPassword) throws LimooException {
         limooDriver = new LimooDriver(limooUrl, botUsername, botPassword);
-        helpMsg = String.format(
-                MessageService.get("help"),
-                limooDriver.getBot().getDisplayName(),
-                ConfigService.get("repo.address")
-        );
 
-        adminCommandHandler = new AdminCommandHandler(limooDriver, helpMsg);
+        adminCommandHandler = new AdminCommandHandler(limooDriver);
 
         try {
             String reportWorkspaceKey = ConfigService.get("admin.reportWorkspaceKey");
@@ -84,7 +78,7 @@ public class LimooStorageBot {
 
                     if (msgText.equals("@" + limooDriver.getBot().getUsername())) {
                         if (message.getThreadRootId() == null) {
-                            handleHelp(message, conversation);
+                            handleIntroduction(message, conversation);
                             return;
                         } else {
                             RequestUtils.followThread(message.getWorkspace(), message.getThreadRootId());
@@ -136,7 +130,7 @@ public class LimooStorageBot {
             @Override
             public void onAddToConversation(Conversation conversation) {
                 try {
-                    conversation.send(helpMsg);
+                    conversation.send(MessageService.get("introduction"));
                 } catch (LimooException e) {
                     logger.error("", e);
                 }
@@ -147,7 +141,7 @@ public class LimooStorageBot {
             @Override
             public void onAddToWorkspace(ir.limoo.driver.entity.Workspace workspace) {
                 try {
-                    workspace.getDefaultConversation().send(helpMsg);
+                    workspace.getDefaultConversation().send(MessageService.get("introduction"));
                 } catch (LimooException e) {
                     logger.error("", e);
                 }
@@ -155,11 +149,12 @@ public class LimooStorageBot {
         });
     }
 
+    private void handleIntroduction(Message message, Conversation conversation) throws LimooException {
+        sendInThreadOrConversation(message, conversation, MessageService.get("introduction"));
+    }
+
     private void handleHelp(Message message, Conversation conversation) throws LimooException {
-        if (message.getThreadRootId() == null)
-            conversation.send(helpMsg);
-        else
-            message.sendInThread(helpMsg);
+        sendInThreadOrConversation(message, conversation, MessageService.get("commandsHelp"));
     }
 
     private void handleException(Message message, Throwable throwable) {
