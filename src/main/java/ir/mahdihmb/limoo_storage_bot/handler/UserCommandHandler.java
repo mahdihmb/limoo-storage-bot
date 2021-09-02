@@ -165,11 +165,7 @@ public class UserCommandHandler {
         }
 
         Message msg = messageAssignmentsMap.get(name).getMessage();
-        if (msg instanceof HibernateProxy)
-            msg = (Message) Hibernate.unproxy(msg);
-
-        Message.Builder messageBuilder = new Message.Builder().text(msg.getText()).fileInfos(msg.getCreatedFileInfos());
-        sendInThreadOrConversation(message, conversation, messageBuilder);
+        sendSingleResult(message, conversation, msg);
     }
 
     private <T> void handleRemove(String command, Message message, String msgPrefix,
@@ -258,23 +254,13 @@ public class UserCommandHandler {
             if (msg instanceof HibernateProxy)
                 msg = (Message) Hibernate.unproxy(msg);
 
-            String directLink;
-            if (notEmpty(msg.getWorkspaceKey()) && notEmpty(msg.getConversationId()) && notEmpty(msg.getId())) {
-                String directLinkUri;
-                if (notEmpty(msg.getThreadRootId())) {
-                    directLinkUri = String.format(THREAD_DIRECT_LINK_URI_TEMPLATE,
-                            msg.getWorkspaceKey(), msg.getConversationId(), msg.getThreadRootId(), msg.getId());
-                } else {
-                    directLinkUri = String.format(DIRECT_LINK_URI_TEMPLATE,
-                            msg.getWorkspaceKey(), msg.getConversationId(), msg.getId());
-                }
-                directLink = String.format(MARKDOWN_LINK_TEMPLATE, LINK_EMOJI, concatUris(limooUrl, directLinkUri));
-            } else {
+            String directLink = generateDirectLink(msg, limooUrl);
+            if (directLink == null)
                 directLink = LINK_EMOJI;
-            }
             String getLinkTemplateKey = isWorkspaceCommand ? "getLinkTemplateForWorkspace" : "getLinkTemplateForUser";
             singleTextBuilder.append(LINE_BREAK)
-                    .append(directLink).append(SPACE).append(String.format(MessageService.get(getLinkTemplateKey), name));
+                    .append(RTL_CONTROL_CHAR).append(directLink).append(SPACE)
+                    .append(String.format(MessageService.get(getLinkTemplateKey), name));
 
             String text = msg.getText();
             String textPreview = text.length() > TEXT_PREVIEW_LEN ? text.substring(0, TEXT_PREVIEW_LEN) : text;
@@ -358,11 +344,7 @@ public class UserCommandHandler {
         }
 
         Message msg = messageAssignmentsMap.get(foundName).getMessage();
-        if (msg instanceof HibernateProxy)
-            msg = (Message) Hibernate.unproxy(msg);
-
-        Message.Builder messageBuilder = new Message.Builder().text(msg.getText()).fileInfos(msg.getCreatedFileInfos());
-        sendInThreadOrConversation(message, conversation, messageBuilder);
+        sendSingleResult(message, conversation, msg);
     }
 
     private <T> void handleListResSearch(String command, Message message, Conversation conversation, String msgPrefix,
@@ -412,5 +394,17 @@ public class UserCommandHandler {
             String sendingText = msgPrefix + MessageService.get(messagesListKey) + messagesListBatches.get(i);
             sendInThreadOrConversation(message, conversation, sendingText);
         }
+    }
+
+    private void sendSingleResult(Message message, Conversation conversation, Message msg) throws LimooException {
+        if (msg instanceof HibernateProxy)
+            msg = (Message) Hibernate.unproxy(msg);
+
+        String text = msg.getText();
+        String directLink = generateDirectLink(msg, limooUrl);
+        if (directLink != null)
+            text = RTL_CONTROL_CHAR + directLink + LINE_BREAK + text;
+        Message.Builder messageBuilder = new Message.Builder().text(text).fileInfos(msg.getCreatedFileInfos());
+        sendInThreadOrConversation(message, conversation, messageBuilder);
     }
 }

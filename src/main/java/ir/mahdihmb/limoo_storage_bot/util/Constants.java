@@ -11,6 +11,7 @@ public class Constants {
     public static final String LINE_BREAKS_REGEX = "[\r\n]";
     public static final String SPACE = " ";
     public static final String BACK_QUOTE = "`";
+    public static final String RTL_CONTROL_CHAR = "\u200F";
 
     public static final Pattern ILLEGAL_NAME_PATTERN = Pattern.compile("^[+*?" + PERSIAN_QUESTION_MARK + "\\-!]");
 

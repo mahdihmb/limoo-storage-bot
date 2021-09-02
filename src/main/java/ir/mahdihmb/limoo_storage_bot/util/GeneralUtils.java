@@ -47,4 +47,19 @@ public class GeneralUtils {
         else
             return message.sendInThread(messageBuilder);
     }
+
+    public static String generateDirectLink(Message msg, String limooUrl) {
+        if (notEmpty(msg.getWorkspaceKey()) && notEmpty(msg.getConversationId()) && notEmpty(msg.getId())) {
+            String directLinkUri;
+            if (notEmpty(msg.getThreadRootId())) {
+                directLinkUri = String.format(THREAD_DIRECT_LINK_URI_TEMPLATE,
+                        msg.getWorkspaceKey(), msg.getConversationId(), msg.getThreadRootId(), msg.getId());
+            } else {
+                directLinkUri = String.format(DIRECT_LINK_URI_TEMPLATE,
+                        msg.getWorkspaceKey(), msg.getConversationId(), msg.getId());
+            }
+            return String.format(MARKDOWN_LINK_TEMPLATE, LINK_EMOJI, concatUris(limooUrl, directLinkUri));
+        }
+        return null;
+    }
 }
