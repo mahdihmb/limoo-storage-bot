@@ -7,7 +7,6 @@ import ir.limoo.driver.entity.MessageFile;
 import ir.limoo.driver.entity.Workspace;
 import ir.limoo.driver.exception.LimooException;
 import ir.limoo.driver.util.MessageUtils;
-import ir.mahdihmb.limoo_storage_bot.core.ConfigService;
 import ir.mahdihmb.limoo_storage_bot.core.CoreManager;
 import ir.mahdihmb.limoo_storage_bot.core.HibernateSessionManager;
 import ir.mahdihmb.limoo_storage_bot.core.MessageService;
@@ -17,6 +16,7 @@ import ir.mahdihmb.limoo_storage_bot.dao.WorkspaceDAO;
 import ir.mahdihmb.limoo_storage_bot.entity.Feedback;
 import ir.mahdihmb.limoo_storage_bot.entity.User;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
+import org.hibernate.HibernateException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,64 +32,80 @@ import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
 import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.getMessageOfThrowable;
 import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.trimSpaces;
 
-public class AdminCommandHandler {
+public class AdminCommandHandler extends Thread {
 
     private static final transient Logger logger = LoggerFactory.getLogger(AdminCommandHandler.class);
 
     private final LimooDriver limooDriver;
-    private String restartPostgresScriptFile;
+    private final Message message;
+    private final Conversation conversation;
+    private final String restartPostgresScriptFile;
 
-    public AdminCommandHandler(LimooDriver limooDriver) {
+    public AdminCommandHandler(LimooDriver limooDriver, Message message, Conversation conversation,
+                               String restartPostgresScriptFile) {
         this.limooDriver = limooDriver;
-
-        try {
-            String scriptFile = ConfigService.get("admin.restartPostgresScriptFile");
-            if (!scriptFile.isEmpty())
-                restartPostgresScriptFile = scriptFile;
-        } catch (Throwable throwable) {
-            logger.error("", throwable);
-        }
+        this.message = message;
+        this.conversation = conversation;
+        this.restartPostgresScriptFile = restartPostgresScriptFile;
     }
 
-    public void handle(Message message, Conversation conversation) throws Throwable {
+    @Override
+    public void run() {
         String msgText = message.getText().trim();
         String command = trimSpaces(msgText.substring((ADMIN_COMMAND_PREFIX).length()));
-        if (command.isEmpty()) {
-            handleHelp(conversation);
-        } else if (command.equals(ADMIN_SEND_INTRODUCTION_IN_LOBBY_COMMAND)) {
-            handleSendIntroductionInLobby(message, conversation);
-        } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
-            handleRestartPostgresql(message, conversation);
-        } else if (command.equals(ADMIN_REPORT_COMMAND)) {
-            handleReport(message);
-        } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
-            handleSendUpdateInLobby(command, message, conversation);
-        } else if (command.startsWith(ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX)) {
-            handleResponseToFeedback(command, message, conversation);
+        try {
+            if (command.isEmpty()) {
+                handleHelp();
+            } else if (command.equals(ADMIN_SEND_INTRODUCTION_IN_LOBBY_COMMAND)) {
+                handleSendIntroductionInLobby();
+            } else if (command.equals(ADMIN_RESTART_POSTGRESQL_COMMAND)) {
+                handleRestartPostgresql();
+            } else if (command.equals(ADMIN_REPORT_COMMAND)) {
+                handleReport();
+            } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
+                handleSendUpdateInLobby(command);
+            } else if (command.startsWith(ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX)) {
+                handleResponseToFeedback(command);
+            }
+        } catch (Throwable throwable) {
+            handleException(throwable);
+        } finally {
+            HibernateSessionManager.closeCurrentSession();
         }
     }
 
-    private void handleHelp(Conversation conversation) throws LimooException {
+    private void handleException(Throwable throwable) {
+        logger.error("", throwable);
+        if (throwable instanceof HibernateException) {
+            try {
+                message.sendInThread(MessageService.get("bugReportTextForAdmin"));
+            } catch (LimooException e) {
+                logger.error("", e);
+            }
+        }
+    }
+
+    private void handleHelp() throws LimooException {
         conversation.send(MessageService.get("adminHelp"));
     }
 
-    private void handleSendIntroductionInLobby(Message message, Conversation conversation) throws LimooException {
+    private void handleSendIntroductionInLobby() throws LimooException {
         for (Workspace workspace : limooDriver.getWorkspaces()) {
             workspace.getDefaultConversation().send(MessageService.get("introduction"));
         }
         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
     }
 
-    private void handleRestartPostgresql(Message message, Conversation conversation) throws LimooException {
+    private void sendMessageAndReact(String msg, String reaction) throws LimooException {
+        RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), reaction);
+        message.sendInThread(msg);
+    }
+
+    private void handleRestartPostgresql() throws LimooException {
         if (restartPostgresScriptFile == null) {
             message.sendInThread(MessageService.get("noScriptSpecified"));
             return;
         }
-
-        SendMessageWithReaction onResult = (msg, reaction) -> {
-            RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), reaction);
-            message.sendInThread(msg);
-        };
 
         try {
             ProcessBuilder processBuilder = new ProcessBuilder();
@@ -114,16 +130,16 @@ public class AdminCommandHandler {
                 while ((line = reader.readLine()) != null) {
                     output.append(line).append(LINE_BREAK);
                 }
-                onResult.apply("```" + LINE_BREAK + output + LINE_BREAK + "```", reaction);
+                sendMessageAndReact("```" + LINE_BREAK + output + LINE_BREAK + "```", reaction);
             } catch (InterruptedException e) {
-                onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
+                sendMessageAndReact("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
             }
         } catch (IOException e) {
-            onResult.apply("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
+            sendMessageAndReact("```" + LINE_BREAK + getMessageOfThrowable(e) + LINE_BREAK + "```", DISLIKE_REACTION);
         }
     }
 
-    private void handleReport(Message message) throws Throwable {
+    private void handleReport() throws LimooException {
         HibernateSessionManager.openSession();
         StringBuilder report = new StringBuilder();
 
@@ -152,7 +168,7 @@ public class AdminCommandHandler {
         message.sendInThread(report.toString());
     }
 
-    private void handleSendUpdateInLobby(String command, Message message, Conversation conversation) throws LimooException {
+    private void handleSendUpdateInLobby(String command) throws LimooException {
         String text = command.substring(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX.length()).trim();
         List<MessageFile> fileInfos = message.getCreatedFileInfos();
         if (text.isEmpty() && fileInfos.isEmpty()) {
@@ -167,7 +183,7 @@ public class AdminCommandHandler {
         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
     }
 
-    private void handleResponseToFeedback(String command, Message message, Conversation conversation) throws Throwable {
+    private void handleResponseToFeedback(String command) throws LimooException {
         HibernateSessionManager.openSession();
         String response = command.substring(ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX.length()).trim();
         List<MessageFile> fileInfos = message.getCreatedFileInfos();
@@ -191,10 +207,5 @@ public class AdminCommandHandler {
                 feedback.getUserConversationId()
         );
         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
-    }
-
-    @FunctionalInterface
-    private interface SendMessageWithReaction {
-        void apply(String msg, String reaction) throws LimooException;
     }
 }

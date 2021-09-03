@@ -12,6 +12,7 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import java.io.Serializable;
 import java.util.List;
+import java.util.function.Function;
 
 public class BaseDAO<T extends IdProvider> {
 
@@ -23,7 +24,7 @@ public class BaseDAO<T extends IdProvider> {
         this.persistentClass = persistentClass;
     }
 
-    protected Object doTransaction(CheckedFunction<Session, ?> action) throws Throwable {
+    protected Object doTransaction(Function<Session, ?> action) {
         Session session = HibernateSessionManager.getCurrentSession();
         Transaction tx = null;
         try {
@@ -31,30 +32,30 @@ public class BaseDAO<T extends IdProvider> {
             Object result = action.apply(session);
             tx.commit();
             return result;
-        } catch (Throwable throwable) {
+        } catch (RuntimeException e) {
             if (tx != null) {
                 try {
                     tx.rollback();
-                } catch (Throwable t) {
-                    logger.error("", t);
+                } catch (Throwable throwable) {
+                    logger.error("", throwable);
                 }
             }
-            throw throwable;
+            throw e;
         }
     }
 
-    public Serializable add(T entity) throws Throwable {
+    public Serializable add(T entity) {
         return (Serializable) doTransaction((session) -> session.save(entity));
     }
 
-    public void update(T entity) throws Throwable {
+    public void update(T entity) {
         doTransaction((session) -> {
             session.update(entity);
             return null;
         });
     }
 
-    public void delete(Serializable id) throws Throwable {
+    public void delete(Serializable id) {
         doTransaction((session) -> {
             session.delete(session.get(persistentClass, id));
             return null;
@@ -62,12 +63,12 @@ public class BaseDAO<T extends IdProvider> {
     }
 
     @SuppressWarnings({"unchecked"})
-    public T get(Serializable id) throws Throwable {
+    public T get(Serializable id) {
         return (T) doTransaction((session) -> session.get(persistentClass, id));
     }
 
     @SuppressWarnings({"unchecked"})
-    public List<T> list() throws Throwable {
+    public List<T> list() {
         return (List<T>) doTransaction((session) -> {
             CriteriaBuilder criteriaBuilder = session.getCriteriaBuilder();
             CriteriaQuery<T> criteriaQuery = criteriaBuilder.createQuery(persistentClass);
@@ -78,21 +79,26 @@ public class BaseDAO<T extends IdProvider> {
     }
 
     @SuppressWarnings({"unchecked"})
-    public T getOrCreate(Serializable id) throws Throwable {
+    public T getOrCreate(Serializable id) {
         return (T) doTransaction((session) -> {
             final T existingEntity = session.get(persistentClass, id);
             if (existingEntity != null)
                 return existingEntity;
 
-            T newEntity = persistentClass.newInstance();
-            newEntity.setId(id);
-            final Serializable newId = session.save(newEntity);
-            return session.get(persistentClass, newId);
+            try {
+                T newEntity = persistentClass.newInstance();
+                newEntity.setId(id);
+                final Serializable newId = session.save(newEntity);
+                return session.get(persistentClass, newId);
+            } catch (InstantiationException | IllegalAccessException e) {
+                logger.error("", e);
+                return null;
+            }
         });
     }
 
     @SuppressWarnings({"unchecked"})
-    public T getByField(String fieldName, Object fieldValue) throws Throwable {
+    public T getByField(String fieldName, Object fieldValue) {
         return (T) doTransaction((session) -> {
             CriteriaBuilder cb = session.getCriteriaBuilder();
             CriteriaQuery<T> cr = cb.createQuery(persistentClass);
@@ -103,10 +109,5 @@ public class BaseDAO<T extends IdProvider> {
                 return null;
             return list.get(0);
         });
-    }
-
-    @FunctionalInterface
-    protected interface CheckedFunction<T, R> {
-        R apply(T t) throws Throwable;
     }
 }

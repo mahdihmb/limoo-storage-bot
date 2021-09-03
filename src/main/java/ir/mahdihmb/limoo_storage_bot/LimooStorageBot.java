@@ -8,37 +8,30 @@ import ir.limoo.driver.event.AddedToWorkspaceEventListener;
 import ir.limoo.driver.event.MessageCreatedEventListener;
 import ir.limoo.driver.exception.LimooException;
 import ir.mahdihmb.limoo_storage_bot.core.ConfigService;
-import ir.mahdihmb.limoo_storage_bot.core.HibernateSessionManager;
 import ir.mahdihmb.limoo_storage_bot.core.MessageService;
-import ir.mahdihmb.limoo_storage_bot.dao.UserDAO;
-import ir.mahdihmb.limoo_storage_bot.dao.WorkspaceDAO;
-import ir.mahdihmb.limoo_storage_bot.entity.User;
-import ir.mahdihmb.limoo_storage_bot.entity.Workspace;
 import ir.mahdihmb.limoo_storage_bot.handler.AdminCommandHandler;
 import ir.mahdihmb.limoo_storage_bot.handler.UserCommandHandler;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
-import org.hibernate.HibernateException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
-import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
+import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.notEmpty;
+import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.errorText;
 
 public class LimooStorageBot {
 
     private static final transient Logger logger = LoggerFactory.getLogger(LimooStorageBot.class);
 
+    private final String limooUrl;
     private final LimooDriver limooDriver;
-    private final AdminCommandHandler adminCommandHandler;
-    private final UserCommandHandler userCommandsHandler;
     private Conversation reportConversation;
-    private long lastTimeSentBugReport = 0;
     private String adminUserId;
+    private String restartPostgresScriptFile;
 
     public LimooStorageBot(String limooUrl, String botUsername, String botPassword) throws LimooException {
-        limooDriver = new LimooDriver(limooUrl, botUsername, botPassword);
-
-        adminCommandHandler = new AdminCommandHandler(limooDriver);
+        this.limooUrl = limooUrl;
+        this.limooDriver = new LimooDriver(limooUrl, botUsername, botPassword);
 
         try {
             String reportWorkspaceKey = ConfigService.get("admin.reportWorkspaceKey");
@@ -53,12 +46,18 @@ public class LimooStorageBot {
             logger.error("", throwable);
         }
 
-        userCommandsHandler = new UserCommandHandler(limooUrl, limooDriver, reportConversation);
-
         try {
             String userId = ConfigService.get("admin.userId");
             if (!userId.isEmpty())
-                adminUserId = userId;
+                this.adminUserId = userId;
+        } catch (Throwable throwable) {
+            logger.error("", throwable);
+        }
+
+        try {
+            String scriptFile = ConfigService.get("admin.restartPostgresScriptFile");
+            if (!scriptFile.isEmpty())
+                restartPostgresScriptFile = scriptFile;
         } catch (Throwable throwable) {
             logger.error("", throwable);
         }
@@ -72,13 +71,13 @@ public class LimooStorageBot {
                     String msgText = message.getText().trim();
 
                     if (adminUserId != null && adminUserId.equals(message.getUserId()) && msgText.startsWith(ADMIN_COMMAND_PREFIX)) {
-                        adminCommandHandler.handle(message, conversation);
+                        new AdminCommandHandler(limooDriver, message, conversation, restartPostgresScriptFile).start();
                         return;
                     }
 
                     if (msgText.equals("@" + limooDriver.getBot().getUsername())) {
                         if (message.getThreadRootId() == null) {
-                            handleIntroduction(message, conversation);
+                            conversation.send(MessageService.get("introduction"));
                             return;
                         } else {
                             RequestUtils.followThread(message.getWorkspace(), message.getThreadRootId());
@@ -91,7 +90,7 @@ public class LimooStorageBot {
 
                             Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), conversation.getId(), directReplyMessageId);
                             if (directReplyMessage == null) {
-                                sendErrorMsgInThread(message, MessageService.get("noDirectReplyMessage"));
+                                message.sendInThread(errorText(MessageService.get("noDirectReplyMessage")));
                                 return;
                             }
 
@@ -111,16 +110,10 @@ public class LimooStorageBot {
                         return;
                     }
 
-                    HibernateSessionManager.openSession();
-                    User user = UserDAO.getInstance().getOrCreate(message.getUserId());
-                    Workspace workspace = WorkspaceDAO.getInstance().getOrCreate(message.getWorkspace().getId());
-
-                    userCommandsHandler.handle(message, conversation, user, workspace);
+                    new UserCommandHandler(limooUrl, limooDriver, message, conversation, reportConversation).start();
                 } catch (Throwable throwable) {
                     logger.error("", throwable);
-                    handleException(message, throwable);
                 } finally {
-                    HibernateSessionManager.closeCurrentSession();
                     conversation.viewLog();
                 }
             }
@@ -149,35 +142,11 @@ public class LimooStorageBot {
         });
     }
 
-    private void handleIntroduction(Message message, Conversation conversation) throws LimooException {
-        sendInThreadOrConversation(message, conversation, MessageService.get("introduction"));
-    }
-
     private void handleHelp(Message message, Conversation conversation) throws LimooException {
-        sendInThreadOrConversation(message, conversation, MessageService.get("commandsHelp"));
-    }
-
-    private void handleException(Message message, Throwable throwable) {
-        if (throwable instanceof HibernateException) {
-            try {
-                message.sendInThread(MessageService.get("bugReportTextForUser"));
-            } catch (LimooException e) {
-                logger.error("", e);
-            }
-
-            long now = System.currentTimeMillis();
-            if (reportConversation != null && now > lastTimeSentBugReport + ONE_HOUR_MILLIS) {
-                try {
-                    String reportMsg = MessageService.get("bugReportTextForAdmin") + LINE_BREAK
-                            + "```java" + LINE_BREAK
-                            + getMessageOfThrowable(throwable) + LINE_BREAK
-                            + "```";
-                    reportConversation.send(reportMsg);
-                } catch (LimooException e) {
-                    logger.error("", e);
-                }
-                lastTimeSentBugReport = now;
-            }
-        }
+        String commandsHelp = MessageService.get("commandsHelp");
+        if (message.getThreadRootId() == null)
+            conversation.send(commandsHelp);
+        else
+            message.sendInThread(commandsHelp);
     }
 }

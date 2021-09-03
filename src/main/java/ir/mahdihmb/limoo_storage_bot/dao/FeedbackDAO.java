@@ -17,11 +17,11 @@ public class FeedbackDAO extends BaseDAO<Feedback> {
         return instance;
     }
 
-    public Feedback getByUserThreadRootId(String userThreadRootId) throws Throwable {
+    public Feedback getByUserThreadRootId(String userThreadRootId) {
         return getByField("userThreadRootId", userThreadRootId);
     }
 
-    public Feedback getByAdminThreadRootId(String adminThreadRootId) throws Throwable {
+    public Feedback getByAdminThreadRootId(String adminThreadRootId) {
         return getByField("adminThreadRootId", adminThreadRootId);
     }
 }

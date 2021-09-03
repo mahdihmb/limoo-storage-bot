@@ -1,8 +1,8 @@
 package ir.mahdihmb.limoo_storage_bot.util;
 
-import ir.limoo.driver.entity.Conversation;
 import ir.limoo.driver.entity.Message;
-import ir.limoo.driver.exception.LimooException;
+
+import java.util.stream.Stream;
 
 import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
 
@@ -16,12 +16,12 @@ public class GeneralUtils {
         return text != null && !text.isEmpty();
     }
 
-    public static void sendErrorMsgInThread(Message message, String text) throws LimooException {
-        message.sendInThread(EXCLAMATION_EMOJI + SPACE + text);
+    public static String successText(String text) {
+        return CHECK_MARK_EMOJI + SPACE + text;
     }
 
-    public static void sendSuccessMsgInThread(Message message, String text) throws LimooException {
-        message.sendInThread(CHECK_MARK_EMOJI + SPACE + text);
+    public static String errorText(String text) {
+        return EXCLAMATION_EMOJI + SPACE + text;
     }
 
     public static String concatUris(String first, String second) {
@@ -30,22 +30,6 @@ public class GeneralUtils {
 
     public static String getMessageOfThrowable(Throwable throwable) {
         return throwable.getClass().getName() + ": " + throwable.getMessage();
-    }
-
-    public static ir.limoo.driver.entity.Message sendInThreadOrConversation(Message message, Conversation conversation,
-                                                                            String sendingText) throws LimooException {
-        if (message.getThreadRootId() == null)
-            return conversation.send(sendingText);
-        else
-            return message.sendInThread(sendingText);
-    }
-
-    public static ir.limoo.driver.entity.Message sendInThreadOrConversation(Message message, Conversation conversation,
-                                                                            Message.Builder messageBuilder) throws LimooException {
-        if (message.getThreadRootId() == null)
-            return conversation.send(messageBuilder);
-        else
-            return message.sendInThread(messageBuilder);
     }
 
     public static String generateDirectLink(Message msg, String limooUrl) {
@@ -61,5 +45,16 @@ public class GeneralUtils {
             return String.format(MARKDOWN_LINK_TEMPLATE, LINK_EMOJI, concatUris(limooUrl, directLinkUri));
         }
         return null;
+    }
+
+    public static Stream<String> filterKeywords(Stream<String> stream, String query) {
+        String[] keywords = query.split(" +");
+        return stream.filter(name -> {
+            for (String keyword : keywords) {
+                if (!name.toLowerCase().contains(keyword.toLowerCase()))
+                    return false;
+            }
+            return true;
+        });
     }
 }

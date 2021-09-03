@@ -21,10 +21,10 @@ public class Constants {
     public static final String REMOVE_PREFIX = "-";
     public static final String FEEDBACK_PREFIX = "!";
     public static final String LIST_PREFIX = "*";
-    public static final String LIST_RES_SEARCH_PREFIX = "??";
-    public static final String LIST_RES_SEARCH_PREFIX_PERSIAN = String.format("%1$s%1$s", PERSIAN_QUESTION_MARK);
-    public static final String UNIQUE_RES_SEARCH_PREFIX = "?";
-    public static final String UNIQUE_RES_SEARCH_PREFIX_PERSIAN = String.format("%s", PERSIAN_QUESTION_MARK);
+    public static final String LIST_RESULT_SEARCH_PREFIX = "??";
+    public static final String LIST_RESULT_SEARCH_PREFIX_PERSIAN = String.format("%1$s%1$s", PERSIAN_QUESTION_MARK);
+    public static final String SINGLE_RESULT_SEARCH_PREFIX = "?";
+    public static final String SINGLE_RESULT_SEARCH_PREFIX_PERSIAN = String.format("%s", PERSIAN_QUESTION_MARK);
 
     public static final String ADMIN_COMMAND_PREFIX = MessageService.get("adminCommandPrefix");
     public static final String ADMIN_RESTART_POSTGRESQL_COMMAND = MessageService.get("adminRestartPostgresqlCommand");
