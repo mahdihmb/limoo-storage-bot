@@ -79,18 +79,18 @@ public class UserCommandHandler extends Thread {
 
             if (command.startsWith(ADD_PREFIX)) {
                 handleAdd(command, messageAssignmentsProvider, dao);
+            } else if (command.startsWith(GET_PREFIX)) {
+                handleGet(command, messageAssignmentsProvider);
             } else if (command.startsWith(REMOVE_PREFIX)) {
                 handleRemove(command, messageAssignmentsProvider, dao);
             } else if (command.startsWith(FEEDBACK_PREFIX)) {
                 handleFeedback(command);
             } else if (command.startsWith(LIST_PREFIX)) {
-                handleList(messageAssignmentsProvider);
-            } else if (command.startsWith(LIST_RESULT_SEARCH_PREFIX) || command.startsWith(LIST_RESULT_SEARCH_PREFIX_PERSIAN)) {
-                handleListResultSearch(command, messageAssignmentsProvider);
-            } else if (command.startsWith(SINGLE_RESULT_SEARCH_PREFIX) || command.startsWith(SINGLE_RESULT_SEARCH_PREFIX_PERSIAN)) {
-                handleSingleResultSearch(command, messageAssignmentsProvider);
-            } else if (!ILLEGAL_NAME_PATTERN.matcher(command).matches()) {
-                handleGet(command, messageAssignmentsProvider);
+                handleList(command, messageAssignmentsProvider);
+            } else if (command.startsWith(SEARCH_PREFIX) || command.startsWith(SEARCH_PREFIX_PERSIAN)) {
+                handleSearch(command, messageAssignmentsProvider);
+            } else {
+                handleGetByKeywords(command, messageAssignmentsProvider);
             }
         } catch (Throwable throwable) {
             handleException(throwable);
@@ -134,34 +134,23 @@ public class UserCommandHandler extends Thread {
 
     private <T> void handleAdd(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                BaseDAO<MessageAssignmentsProvider<T>> dao) throws BotException, LimooException {
-        String temp = command.substring(ADD_PREFIX.length());
-        String content = trimSpaces(temp);
-        if (content.isEmpty() || !temp.startsWith(SPACE))
-            throw BotException.createWithI18n("badCommand");
-
-        String name;
-        String text = "";
-        List<MessageFile> fileInfos = message.getCreatedFileInfos();
-        String messageId = message.getId();
-
-        if (content.contains(LINE_BREAK)) {
-            int firstBreakIndex = content.indexOf(LINE_BREAK);
-            name = trimSpaces(content.substring(0, firstBreakIndex));
-            text = trimSpaces(content.substring(firstBreakIndex + LINE_BREAK.length()));
-        } else {
-            name = content;
-        }
-
-        String directReplyMessageId = message.getDirectReplyMessageId();
-        String threadRootId = message.getThreadRootId();
-        if (text.isEmpty() && fileInfos.isEmpty() && (directReplyMessageId == null || directReplyMessageId.isEmpty())) {
-            if (threadRootId == null)
-                throw BotException.createWithI18n("emptyBodyAddCommandInConversation");
-            throw BotException.createWithI18n("emptyBodyAddCommandInThread");
-        }
-
+        String notTrimmedName = command.substring(ADD_PREFIX.length());
+        String name = trimSpaces(notTrimmedName);
         if (name.isEmpty())
             throw BotException.createWithI18n("noName");
+        if (!notTrimmedName.startsWith(SPACE))
+            throw BotException.createWithI18n("badCommand");
+
+        String threadRootId = message.getThreadRootId();
+        if (empty(threadRootId))
+            throw BotException.createWithI18n("addCommandInConversation");
+
+        String directReplyMessageId = message.getDirectReplyMessageId();
+        if (empty(directReplyMessageId))
+            throw BotException.createWithI18n("noReplyInThread");
+
+        if (name.contains(LINE_BREAK))
+            throw BotException.createWithI18n("multiLineName");
         if (name.length() > MAX_NAME_LEN)
             throw BotException.create(String.format(MessageService.get("tooLongName"), MAX_NAME_LEN));
         if (ILLEGAL_NAME_PATTERN.matcher(name).matches())
@@ -172,50 +161,44 @@ public class UserCommandHandler extends Thread {
         if (messageAssignmentsMap.containsKey(name))
             throw BotException.createWithI18n("nameExists", msgPrefix);
 
-        if (text.isEmpty() && fileInfos.isEmpty()) {
-            Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), message.getConversationId(), directReplyMessageId);
-            if (directReplyMessage == null)
-                throw BotException.createWithI18n("noDirectReplyMessage");
-
-            messageId = directReplyMessageId;
-            text = directReplyMessage.getText();
-            fileInfos = directReplyMessage.getCreatedFileInfos();
-        }
+        Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), message.getConversationId(), directReplyMessageId);
+        if (directReplyMessage == null)
+            throw BotException.createWithI18n("noDirectReplyMessage");
 
         Message msg = new Message();
-        msg.setId(messageId);
-        msg.setText(text);
-        msg.setFileInfos(fileInfos);
+        msg.setId(directReplyMessageId);
+        msg.setText(directReplyMessage.getText());
+        msg.setFileInfos(directReplyMessage.getCreatedFileInfos());
         msg.setWorkspaceKey(message.getWorkspace().getKey());
         msg.setConversationId(message.getConversationId());
-        msg.setThreadRootId(threadRootId == null || threadRootId.equals(messageId) ? null : threadRootId);
+        msg.setThreadRootId(threadRootId.equals(directReplyMessageId) ? null : threadRootId);
         messageAssignmentsProvider.putInMessageAssignmentsMap(name, new MessageAssignment<>(name, messageAssignmentsProvider, msg));
         dao.update(messageAssignmentsProvider);
         message.sendInThread(successText(msgPrefix + MessageService.get("messageAdded")));
     }
 
-    private <T> void handleGet(String name, MessageAssignmentsProvider<T> messageAssignmentsProvider)
+    private <T> void handleGet(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
+        String notTrimmedName = command.substring(GET_PREFIX.length());
+        String name = trimSpaces(notTrimmedName);
+        if (name.isEmpty())
+            throw BotException.createWithI18n("noName");
+        if (!notTrimmedName.startsWith(SPACE))
+            throw BotException.createWithI18n("badCommand");
+
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
 
         if (messageAssignmentsMap.isEmpty())
-            throw BotException.createWithI18n("dontHaveAnyMessages" + msgPrefix);
+            throw BotException.createWithI18n("dontHaveAnyMessages", msgPrefix);
         if (!messageAssignmentsMap.containsKey(name))
             throw BotException.createWithI18n("noSuchMessage", msgPrefix);
 
         sendSingleResult(name, messageAssignmentsMap.get(name).getMessage());
     }
 
-    private <T> void handleSingleResultSearch(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
+    private <T> void handleGetByKeywords(String query, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
-        String notTrimmedQuery = command.substring(SINGLE_RESULT_SEARCH_PREFIX.length());
-        String query = trimSpaces(notTrimmedQuery);
-        if (query.isEmpty())
-            throw BotException.createWithI18n("noQuery");
-        if (!notTrimmedQuery.startsWith(SPACE))
-            throw BotException.createWithI18n("badCommand");
-
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.isEmpty())
@@ -282,7 +265,7 @@ public class UserCommandHandler extends Thread {
         RequestUtils.reactToMessage(message.getWorkspace(), message.getConversationId(), message.getId(), SEEN_REACTION);
         message.sendInThread(MessageService.get("feedbackSent"));
 
-        String threadId = message.getThreadRootId() == null ? message.getId() : message.getThreadRootId();
+        String threadId = empty(message.getThreadRootId()) ? message.getId() : message.getThreadRootId();
         Feedback feedback = new Feedback(
                 message.getUserId(), message.getWorkspace().getId(), message.getConversationId(), threadId,
                 reportConversation.getWorkspace().getId(), reportConversation.getId(), sentMdgForAdmin.getId()
@@ -290,8 +273,11 @@ public class UserCommandHandler extends Thread {
         FeedbackDAO.getInstance().add(feedback);
     }
 
-    private <T> void handleList(MessageAssignmentsProvider<T> messageAssignmentsProvider)
+    private <T> void handleList(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
+        if (!command.isEmpty())
+            throw BotException.createWithI18n("badCommand");
+
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.isEmpty())
@@ -300,9 +286,9 @@ public class UserCommandHandler extends Thread {
         sendListResult(messageAssignmentsMap, "messagesList", "messagesListRest");
     }
 
-    private <T> void handleListResultSearch(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
+    private <T> void handleSearch(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
-        String notTrimmedQuery = command.substring(LIST_RESULT_SEARCH_PREFIX.length());
+        String notTrimmedQuery = command.substring(SEARCH_PREFIX.length());
         String query = trimSpaces(notTrimmedQuery);
         if (query.isEmpty())
             throw BotException.createWithI18n("noQuery");
@@ -395,14 +381,14 @@ public class UserCommandHandler extends Thread {
     }
 
     private void sendInThreadOrConversation(String sendingText) throws LimooException {
-        if (message.getThreadRootId() == null)
+        if (empty(message.getThreadRootId()))
             conversation.send(sendingText);
         else
             message.sendInThread(sendingText);
     }
 
     private void sendInThreadOrConversation(Message.Builder messageBuilder) throws LimooException {
-        if (message.getThreadRootId() == null)
+        if (empty(message.getThreadRootId()))
             conversation.send(messageBuilder);
         else
             message.sendInThread(messageBuilder);

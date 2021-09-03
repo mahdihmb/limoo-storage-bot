@@ -12,6 +12,10 @@ public class GeneralUtils {
         return text.replaceFirst("^[ \\t]+", "").replaceFirst("[ \\t]+$", "");
     }
 
+    public static boolean empty(String text) {
+        return text == null || text.isEmpty();
+    }
+
     public static boolean notEmpty(String text) {
         return text != null && !text.isEmpty();
     }
