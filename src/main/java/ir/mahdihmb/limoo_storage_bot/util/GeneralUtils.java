@@ -24,6 +24,18 @@ public class GeneralUtils {
         return EXCLAMATION_EMOJI + SPACE + text;
     }
 
+    public static String italic(String text) {
+        return "*" + text + "*";
+    }
+
+    public static String bold(String text) {
+        return "**" + text + "**";
+    }
+
+    public static String italicBold(String text) {
+        return "***" + text + "***";
+    }
+
     public static String concatUris(String first, String second) {
         return first + (first.endsWith("/") || second.startsWith("/") ? "" : "/") + second;
     }

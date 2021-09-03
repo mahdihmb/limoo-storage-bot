@@ -10,6 +10,7 @@ public class Constants {
     public static final String LINE_BREAK = "\n";
     public static final String LINE_BREAKS_REGEX = "[\r\n]";
     public static final String SPACE = " ";
+    public static final String COLON = ":";
     public static final String BACK_QUOTE = "`";
     public static final String RTL_CONTROL_CHAR = "\u200F";
 

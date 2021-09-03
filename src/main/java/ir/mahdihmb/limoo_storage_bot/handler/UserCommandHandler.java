@@ -204,7 +204,7 @@ public class UserCommandHandler extends Thread {
         if (!messageAssignmentsMap.containsKey(name))
             throw BotException.createWithI18n("noSuchMessage", msgPrefix);
 
-        sendSingleResult(messageAssignmentsMap.get(name).getMessage());
+        sendSingleResult(name, messageAssignmentsMap.get(name).getMessage());
     }
 
     private <T> void handleSingleResultSearch(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
@@ -226,7 +226,7 @@ public class UserCommandHandler extends Thread {
         if (foundName == null)
             throw BotException.createWithI18n("noMatches", msgPrefix);
 
-        sendSingleResult(messageAssignmentsMap.get(foundName).getMessage());
+        sendSingleResult(foundName, messageAssignmentsMap.get(foundName).getMessage());
     }
 
     private <T> void handleRemove(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider,
@@ -327,15 +327,19 @@ public class UserCommandHandler extends Thread {
         sendListResult(filteredMessageAssignmentsMap, "filteredMessagesList", "filteredMessagesListRest");
     }
 
-    private void sendSingleResult(Message msg) throws LimooException {
+    private void sendSingleResult(String name, Message msg) throws LimooException {
         if (msg instanceof HibernateProxy)
             msg = (Message) Hibernate.unproxy(msg);
 
-        String text = msg.getText();
+        StringBuilder textBuilder = new StringBuilder(RTL_CONTROL_CHAR);
         String directLink = generateDirectLink(msg, limooUrl);
         if (directLink != null)
-            text = RTL_CONTROL_CHAR + directLink + LINE_BREAK + text;
-        Message.Builder messageBuilder = new Message.Builder().text(text).fileInfos(msg.getCreatedFileInfos());
+            textBuilder.append(directLink).append(SPACE);
+        textBuilder.append(italicBold(name)).append(COLON).append(LINE_BREAK).append(msg.getText());
+
+        Message.Builder messageBuilder = new Message.Builder()
+                .text(textBuilder.toString())
+                .fileInfos(msg.getCreatedFileInfos());
         sendInThreadOrConversation(messageBuilder);
     }
 
