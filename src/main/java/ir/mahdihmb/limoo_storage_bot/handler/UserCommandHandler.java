@@ -275,7 +275,7 @@ public class UserCommandHandler extends Thread {
 
     private <T> void handleList(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
-        if (!command.isEmpty())
+        if (!command.substring(LIST_PREFIX.length()).isEmpty())
             throw BotException.createWithI18n("badCommand");
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
