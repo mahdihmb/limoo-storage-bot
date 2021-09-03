@@ -12,7 +12,7 @@ repositories {
 
 dependencies {
     // Limoo driver
-    implementation ':limoo-java-driver:3.0.0-storage_bot'
+    implementation ':limoo-java-driver:3.1.0-storage_bot'
 
     // OkHttp client
     implementation 'com.squareup.okhttp3:okhttp:4.9.1'

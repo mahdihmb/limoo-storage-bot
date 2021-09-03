@@ -33,6 +33,7 @@ public class Constants {
     public static final String ADMIN_SEND_INTRODUCTION_IN_LOBBY_COMMAND = MessageService.get("adminSendIntroductionInLobbyCommand");
     public static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminSendUpdateInLobbyCommandPrefix");
     public static final String ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX = MessageService.get("adminResponseToFeedbackCommandPrefix");
+    public static final String ADMIN_DELETE_BOT_MESSAGE_COMMAND_PREFIX = MessageService.get("adminDeleteBotMessageCommandPrefix");
 
     public static final int MAX_NAME_LEN = 200;
     public static final int TEXT_PREVIEW_LEN = 70;

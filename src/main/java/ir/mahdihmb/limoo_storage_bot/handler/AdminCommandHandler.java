@@ -29,8 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
-import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.getMessageOfThrowable;
-import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.trimSpaces;
+import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
 
 public class AdminCommandHandler extends Thread {
 
@@ -62,6 +61,8 @@ public class AdminCommandHandler extends Thread {
                 handleRestartPostgresql();
             } else if (command.equals(ADMIN_REPORT_COMMAND)) {
                 handleReport();
+            } else if (command.equals(ADMIN_DELETE_BOT_MESSAGE_COMMAND_PREFIX)) {
+                handleDeleteBotMessage();
             } else if (command.startsWith(ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX)) {
                 handleSendUpdateInLobby(command);
             } else if (command.startsWith(ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX)) {
@@ -207,5 +208,12 @@ public class AdminCommandHandler extends Thread {
                 feedback.getUserConversationId()
         );
         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
+    }
+
+    private void handleDeleteBotMessage() throws LimooException {
+        String directReplyMessageId = message.getDirectReplyMessageId();
+        if (notEmpty(directReplyMessageId)) {
+            RequestUtils.deleteMessage(message.getWorkspace(), message.getConversationId(), directReplyMessageId);
+        }
     }
 }

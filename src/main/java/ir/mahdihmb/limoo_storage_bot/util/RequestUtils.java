@@ -20,6 +20,7 @@ public class RequestUtils {
     private static final transient Logger logger = LoggerFactory.getLogger(RequestUtils.class);
 
     private static final String GET_MESSAGE_URI_TEMPLATE = MessageUtils.MESSAGES_ROOT_URI_TEMPLATE + "/%s";
+    private static final String DELETE_MESSAGE_URI_TEMPLATE = MessageUtils.MESSAGES_ROOT_URI_TEMPLATE + "/%s";
     private static final String GET_USER_URI_TEMPLATE = "user/items/%s";
     private static final String GET_USERS_BY_IDS_URI_TEMPLATE = "user/ids";
     private static final String FOLLOW_THREAD_URI_TEMPLATE = "workspace/items/%s/thread/items/%s/follow";
@@ -34,6 +35,11 @@ public class RequestUtils {
             logger.error("", e);
             return null;
         }
+    }
+
+    public static void deleteMessage(Workspace workspace, String conversationId, String messageId) throws LimooException {
+        String uri = String.format(DELETE_MESSAGE_URI_TEMPLATE, workspace.getId(), conversationId, messageId);
+        workspace.getRequester().executeApiDelete(uri, workspace.getWorker());
     }
 
     public static User getUser(Workspace workspace, String userId) throws LimooException {
