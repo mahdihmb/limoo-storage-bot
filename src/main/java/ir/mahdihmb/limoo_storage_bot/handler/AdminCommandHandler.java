@@ -188,7 +188,7 @@ public class AdminCommandHandler extends Thread {
         HibernateSessionManager.openSession();
         String response = command.substring(ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX.length()).trim();
         List<MessageFile> fileInfos = message.getCreatedFileInfos();
-        if (message.getThreadRootId() == null || response.isEmpty() && fileInfos.isEmpty()) {
+        if (empty(message.getThreadRootId()) || response.isEmpty() && fileInfos.isEmpty()) {
             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), DISLIKE_REACTION);
             return;
         }

@@ -65,11 +65,6 @@ public class RequestUtils {
         return JacksonUtils.deserializeObjectToList(usersNode, User.class);
     }
 
-    public static void followThread(Workspace workspace, String threadRootId) throws LimooException {
-        String uri = String.format(FOLLOW_THREAD_URI_TEMPLATE, workspace.getId(), threadRootId);
-        workspace.getRequester().executeApiPost(uri, JacksonUtils.createEmptyObjectNode(), workspace.getWorker());
-    }
-
     public static void viewLogThread(Workspace workspace, String threadRootId) throws LimooException {
         String uri = String.format(THREAD_VIEW_LOG_URI_TEMPLATE, workspace.getId(), threadRootId);
         ObjectNode body = JacksonUtils.createEmptyObjectNode();

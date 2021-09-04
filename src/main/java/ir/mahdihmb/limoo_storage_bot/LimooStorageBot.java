@@ -76,15 +76,14 @@ public class LimooStorageBot {
                     }
 
                     if (msgText.equals("@" + limooDriver.getBot().getUsername())) {
-                        if (threadRootId == null) {
+                        if (empty(threadRootId)) {
                             conversation.send(MessageService.get("introduction"));
                             return;
                         } else {
-                            RequestUtils.followThread(message.getWorkspace(), threadRootId);
                             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
 
                             String directReplyMessageId = message.getDirectReplyMessageId();
-                            if (directReplyMessageId == null || directReplyMessageId.isEmpty()) {
+                            if (empty(directReplyMessageId)) {
                                 return;
                             }
 
@@ -152,7 +151,7 @@ public class LimooStorageBot {
 
     private void handleHelp(Message message, Conversation conversation) throws LimooException {
         String commandsHelp = MessageService.get("commandsHelp");
-        if (message.getThreadRootId() == null)
+        if (empty(message.getThreadRootId()))
             conversation.send(commandsHelp);
         else
             message.sendInThread(commandsHelp);

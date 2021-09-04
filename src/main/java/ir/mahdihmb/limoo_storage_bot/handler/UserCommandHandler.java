@@ -135,7 +135,10 @@ public class UserCommandHandler extends Thread {
     private <T> void handleAdd(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                BaseDAO<MessageAssignmentsProvider<T>> dao) throws BotException, LimooException {
         String notTrimmedName = command.substring(ADD_PREFIX.length());
-        String name = trimSpaces(notTrimmedName);
+        String name = notTrimmedName.trim();
+        if (name.contains(LINE_BREAK))
+            name = name.substring(0, name.indexOf(LINE_BREAK)).trim();
+
         if (name.isEmpty())
             throw BotException.createWithI18n("noName");
         if (!notTrimmedName.startsWith(SPACE))
@@ -149,8 +152,6 @@ public class UserCommandHandler extends Thread {
         if (empty(directReplyMessageId))
             throw BotException.createWithI18n("noReplyInThread");
 
-        if (name.contains(LINE_BREAK))
-            throw BotException.createWithI18n("multiLineName");
         if (name.length() > MAX_NAME_LEN)
             throw BotException.create(String.format(MessageService.get("tooLongName"), MAX_NAME_LEN));
         if (ILLEGAL_NAME_PATTERN.matcher(name).matches())
@@ -180,7 +181,10 @@ public class UserCommandHandler extends Thread {
     private <T> void handleGet(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
         String notTrimmedName = command.substring(GET_PREFIX.length());
-        String name = trimSpaces(notTrimmedName);
+        String name = notTrimmedName.trim();
+        if (name.contains(LINE_BREAK))
+            name = name.substring(0, name.indexOf(LINE_BREAK)).trim();
+
         if (name.isEmpty())
             throw BotException.createWithI18n("noName");
         if (!notTrimmedName.startsWith(SPACE))
@@ -194,11 +198,18 @@ public class UserCommandHandler extends Thread {
         if (!messageAssignmentsMap.containsKey(name))
             throw BotException.createWithI18n("noSuchMessage", msgPrefix);
 
-        sendSingleResult(name, messageAssignmentsMap.get(name).getMessage());
+        sendSingleResult(messageAssignmentsMap.get(name).getMessage(), name);
     }
 
-    private <T> void handleGetByKeywords(String query, MessageAssignmentsProvider<T> messageAssignmentsProvider)
+    private <T> void handleGetByKeywords(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
+        String query = command;
+        if (query.contains(LINE_BREAK))
+            query = query.substring(0, query.indexOf(LINE_BREAK)).trim();
+
+        if (query.isEmpty())
+            throw BotException.createWithI18n("noQuery");
+
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.isEmpty())
@@ -209,13 +220,16 @@ public class UserCommandHandler extends Thread {
         if (foundName == null)
             throw BotException.createWithI18n("noMatches", msgPrefix);
 
-        sendSingleResult(foundName, messageAssignmentsMap.get(foundName).getMessage());
+        sendSingleResult(messageAssignmentsMap.get(foundName).getMessage(), foundName);
     }
 
     private <T> void handleRemove(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                   BaseDAO<MessageAssignmentsProvider<T>> dao) throws BotException, LimooException {
         String notTrimmedName = command.substring(REMOVE_PREFIX.length());
-        String name = trimSpaces(notTrimmedName);
+        String name = notTrimmedName.trim();
+        if (name.contains(LINE_BREAK))
+            name = name.substring(0, name.indexOf(LINE_BREAK)).trim();
+
         if (name.isEmpty())
             throw BotException.createWithI18n("noName");
         if (!notTrimmedName.startsWith(SPACE))
@@ -235,7 +249,7 @@ public class UserCommandHandler extends Thread {
     }
 
     private void handleFeedback(String command) throws BotException, LimooException {
-        String feedbackText = trimSpaces(command.substring(FEEDBACK_PREFIX.length()));
+        String feedbackText = command.substring(FEEDBACK_PREFIX.length()).trim();
         List<MessageFile> fileInfos = message.getCreatedFileInfos();
         if (feedbackText.isEmpty() && fileInfos.isEmpty())
             throw BotException.createWithI18n("badCommand");
@@ -275,7 +289,11 @@ public class UserCommandHandler extends Thread {
 
     private <T> void handleList(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
-        if (!command.substring(LIST_PREFIX.length()).isEmpty())
+        String content = command.substring(LIST_PREFIX.length()).trim();
+        if (content.contains(LINE_BREAK))
+            content = content.substring(0, content.indexOf(LINE_BREAK)).trim();
+
+        if (!content.isEmpty())
             throw BotException.createWithI18n("badCommand");
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
@@ -289,7 +307,10 @@ public class UserCommandHandler extends Thread {
     private <T> void handleSearch(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider)
             throws BotException, LimooException {
         String notTrimmedQuery = command.substring(SEARCH_PREFIX.length());
-        String query = trimSpaces(notTrimmedQuery);
+        String query = notTrimmedQuery.trim();
+        if (query.contains(LINE_BREAK))
+            query = query.substring(0, query.indexOf(LINE_BREAK)).trim();
+
         if (query.isEmpty())
             throw BotException.createWithI18n("noQuery");
         if (!notTrimmedQuery.startsWith(SPACE))
@@ -313,7 +334,7 @@ public class UserCommandHandler extends Thread {
         sendListResult(filteredMessageAssignmentsMap, "filteredMessagesList", "filteredMessagesListRest");
     }
 
-    private void sendSingleResult(String name, Message msg) throws LimooException {
+    private void sendSingleResult(Message msg, String name) throws LimooException {
         if (msg instanceof HibernateProxy)
             msg = (Message) Hibernate.unproxy(msg);
 
