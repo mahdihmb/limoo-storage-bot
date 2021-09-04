@@ -16,8 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
-import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.notEmpty;
-import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.errorText;
+import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
 
 public class LimooStorageBot {
 
@@ -67,6 +66,7 @@ public class LimooStorageBot {
         limooDriver.addEventListener(new MessageCreatedEventListener() {
             @Override
             public void onNewMessage(Message message, Conversation conversation) {
+                String threadRootId = message.getThreadRootId();
                 try {
                     String msgText = message.getText().trim();
 
@@ -76,11 +76,11 @@ public class LimooStorageBot {
                     }
 
                     if (msgText.equals("@" + limooDriver.getBot().getUsername())) {
-                        if (message.getThreadRootId() == null) {
+                        if (threadRootId == null) {
                             conversation.send(MessageService.get("introduction"));
                             return;
                         } else {
-                            RequestUtils.followThread(message.getWorkspace(), message.getThreadRootId());
+                            RequestUtils.followThread(message.getWorkspace(), threadRootId);
                             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
 
                             String directReplyMessageId = message.getDirectReplyMessageId();
@@ -114,7 +114,15 @@ public class LimooStorageBot {
                 } catch (Throwable throwable) {
                     logger.error("", throwable);
                 } finally {
-                    conversation.viewLog();
+                    if (empty(threadRootId)) {
+                        conversation.viewLog();
+                    } else {
+                        try {
+                            RequestUtils.viewLogThread(message.getWorkspace(), threadRootId);
+                        } catch (LimooException e) {
+                            logger.info("Can't send viewLog for a thread: ", e);
+                        }
+                    }
                 }
             }
         });
