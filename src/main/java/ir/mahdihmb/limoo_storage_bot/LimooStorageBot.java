@@ -67,9 +67,8 @@ public class LimooStorageBot {
             @Override
             public void onNewMessage(Message message, Conversation conversation) {
                 String threadRootId = message.getThreadRootId();
+                String msgText = message.getText().trim();
                 try {
-                    String msgText = message.getText().trim();
-
                     if (adminUserId != null && adminUserId.equals(message.getUserId()) && msgText.startsWith(ADMIN_COMMAND_PREFIX)) {
                         new AdminCommandHandler(limooDriver, message, conversation, restartPostgresScriptFile).start();
                         return;
@@ -77,7 +76,7 @@ public class LimooStorageBot {
 
                     if (msgText.equals("@" + limooDriver.getBot().getUsername())) {
                         if (empty(threadRootId)) {
-                            conversation.send(MessageService.get("introduction"));
+                            conversation.send(MessageService.get("help.introduction"));
                             return;
                         } else {
                             RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
@@ -89,24 +88,13 @@ public class LimooStorageBot {
 
                             Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), conversation.getId(), directReplyMessageId);
                             if (directReplyMessage == null) {
-                                message.sendInThread(errorText(MessageService.get("noDirectReplyMessage")));
+                                message.sendInThread(errorText(MessageService.get("error.noDirectReplyMessage")));
                                 return;
                             }
 
                             directReplyMessage.setWorkspace(message.getWorkspace());
                             message = directReplyMessage;
-                            msgText = message.getText().trim();
                         }
-                    }
-
-                    if (msgText.equals(COMMAND_PREFIX) || msgText.equals(WORKSPACE_COMMAND_PREFIX)) {
-                        handleHelp(message, conversation);
-                        return;
-                    }
-
-                    if (!msgText.startsWith(COMMAND_PREFIX + SPACE)
-                            && !msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
-                        return;
                     }
 
                     new UserCommandHandler(limooUrl, limooDriver, message, conversation, reportConversation).start();
@@ -130,7 +118,7 @@ public class LimooStorageBot {
             @Override
             public void onAddToConversation(Conversation conversation) {
                 try {
-                    conversation.send(MessageService.get("introduction"));
+                    conversation.send(MessageService.get("help.introduction"));
                 } catch (LimooException e) {
                     logger.error("", e);
                 }
@@ -141,19 +129,11 @@ public class LimooStorageBot {
             @Override
             public void onAddToWorkspace(ir.limoo.driver.entity.Workspace workspace) {
                 try {
-                    workspace.getDefaultConversation().send(MessageService.get("introduction"));
+                    workspace.getDefaultConversation().send(MessageService.get("help.introduction"));
                 } catch (LimooException e) {
                     logger.error("", e);
                 }
             }
         });
-    }
-
-    private void handleHelp(Message message, Conversation conversation) throws LimooException {
-        String commandsHelp = MessageService.get("commandsHelp");
-        if (empty(message.getThreadRootId()))
-            conversation.send(commandsHelp);
-        else
-            message.sendInThread(commandsHelp);
     }
 }

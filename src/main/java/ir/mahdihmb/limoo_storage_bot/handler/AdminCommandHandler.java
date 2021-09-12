@@ -50,8 +50,7 @@ public class AdminCommandHandler extends Thread {
 
     @Override
     public void run() {
-        String msgText = message.getText().trim();
-        String command = trimSpaces(msgText.substring((ADMIN_COMMAND_PREFIX).length()));
+        String command = message.getText().trim().substring((ADMIN_COMMAND_PREFIX).length()).trim();
         try {
             if (command.isEmpty()) {
                 handleHelp();
@@ -87,12 +86,12 @@ public class AdminCommandHandler extends Thread {
     }
 
     private void handleHelp() throws LimooException {
-        conversation.send(MessageService.get("adminHelp"));
+        conversation.send(MessageService.get("adminCommand.help"));
     }
 
     private void handleSendIntroductionInLobby() throws LimooException {
         for (Workspace workspace : limooDriver.getWorkspaces()) {
-            workspace.getDefaultConversation().send(MessageService.get("introduction"));
+            workspace.getDefaultConversation().send(MessageService.get("help.introduction"));
         }
         RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
     }

@@ -26,7 +26,6 @@ public class RequestUtils {
     private static final String REACT_URI_TEMPLATE = MessageUtils.MESSAGES_ROOT_URI_TEMPLATE + "/%s/reaction/items/%s";
     private static final String GET_USER_URI_TEMPLATE = "user/items/%s";
     private static final String GET_USERS_BY_IDS_URI_TEMPLATE = "user/ids";
-    private static final String FOLLOW_THREAD_URI_TEMPLATE = THREADS_ROOT_URI_TEMPLATE + "/follow";
     private static final String THREAD_VIEW_LOG_URI_TEMPLATE = THREADS_ROOT_URI_TEMPLATE + "/view_log";
 
     public static Message getMessage(Workspace workspace, String conversationId, String messageId) throws LimooException {

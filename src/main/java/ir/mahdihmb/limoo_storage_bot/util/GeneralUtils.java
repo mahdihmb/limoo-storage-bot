@@ -8,10 +8,6 @@ import static ir.mahdihmb.limoo_storage_bot.util.Constants.*;
 
 public class GeneralUtils {
 
-    public static String trimSpaces(String text) {
-        return text.replaceFirst("^[ \\t]+", "").replaceFirst("[ \\t]+$", "");
-    }
-
     public static boolean empty(String text) {
         return text == null || text.isEmpty();
     }

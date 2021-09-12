@@ -28,12 +28,12 @@ public class Constants {
     public static final String FEEDBACK_PREFIX = "!";
 
     public static final String ADMIN_COMMAND_PREFIX = MessageService.get("adminCommandPrefix");
-    public static final String ADMIN_RESTART_POSTGRESQL_COMMAND = MessageService.get("adminRestartPostgresqlCommand");
-    public static final String ADMIN_REPORT_COMMAND = MessageService.get("adminReportCommand");
-    public static final String ADMIN_SEND_INTRODUCTION_IN_LOBBY_COMMAND = MessageService.get("adminSendIntroductionInLobbyCommand");
-    public static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminSendUpdateInLobbyCommandPrefix");
-    public static final String ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX = MessageService.get("adminResponseToFeedbackCommandPrefix");
-    public static final String ADMIN_DELETE_BOT_MESSAGE_COMMAND_PREFIX = MessageService.get("adminDeleteBotMessageCommandPrefix");
+    public static final String ADMIN_RESTART_POSTGRESQL_COMMAND = MessageService.get("adminCommand.restartPostgresql");
+    public static final String ADMIN_REPORT_COMMAND = MessageService.get("adminCommand.report");
+    public static final String ADMIN_SEND_INTRODUCTION_IN_LOBBY_COMMAND = MessageService.get("adminCommand.sendIntroductionInLobby");
+    public static final String ADMIN_SEND_UPDATE_IN_LOBBY_COMMAND_PREFIX = MessageService.get("adminCommand.sendUpdateInLobbyPrefix");
+    public static final String ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX = MessageService.get("adminCommand.responseToFeedbackPrefix");
+    public static final String ADMIN_DELETE_BOT_MESSAGE_COMMAND_PREFIX = MessageService.get("adminCommand.deleteBotMessagePrefix");
 
     public static final int MAX_NAME_LEN = 200;
     public static final int TEXT_PREVIEW_LEN = 70;

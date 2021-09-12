@@ -62,20 +62,30 @@ public class UserCommandHandler extends Thread {
             Workspace workspace = WorkspaceDAO.getInstance().getOrCreate(message.getWorkspace().getId());
 
             String msgText = message.getText().trim();
-            String command;
+            isWorkspaceCommand = msgText.startsWith(WORKSPACE_COMMAND_PREFIX);
+
+            String notTrimmedCommand;
             MessageAssignmentsProvider<?> messageAssignmentsProvider;
             BaseDAO dao;
-            if (msgText.startsWith(WORKSPACE_COMMAND_PREFIX + SPACE)) {
-                command = trimSpaces(msgText.substring((WORKSPACE_COMMAND_PREFIX + SPACE).length()));
+            if (isWorkspaceCommand) {
+                notTrimmedCommand = msgText.substring(WORKSPACE_COMMAND_PREFIX.length());
                 messageAssignmentsProvider = workspace;
                 dao = WorkspaceDAO.getInstance();
-                isWorkspaceCommand = true;
                 msgPrefix = MessageService.get("workspaceListIndicator") + SPACE;
             } else {
-                command = trimSpaces(msgText.substring((COMMAND_PREFIX + SPACE).length()));
+                notTrimmedCommand = msgText.substring(COMMAND_PREFIX.length());
                 messageAssignmentsProvider = user;
                 dao = UserDAO.getInstance();
             }
+
+            String command = notTrimmedCommand.trim();
+            if (command.isEmpty()) {
+                handleHelp();
+                return;
+            }
+
+            if (!notTrimmedCommand.startsWith(SPACE))
+                return;
 
             if (command.startsWith(ADD_PREFIX)) {
                 handleAdd(command, messageAssignmentsProvider, dao);
@@ -132,6 +142,14 @@ public class UserCommandHandler extends Thread {
         }
     }
 
+    private void handleHelp() throws LimooException {
+        String commandsHelp = MessageService.get(isWorkspaceCommand ? "help.commands.workspaceFirst" : "help.commands");
+        if (empty(message.getThreadRootId()))
+            conversation.send(commandsHelp);
+        else
+            message.sendInThread(commandsHelp);
+    }
+
     private <T> void handleAdd(String command, MessageAssignmentsProvider<T> messageAssignmentsProvider,
                                BaseDAO<MessageAssignmentsProvider<T>> dao) throws BotException, LimooException {
         String notTrimmedName = command.substring(ADD_PREFIX.length());
@@ -140,31 +158,31 @@ public class UserCommandHandler extends Thread {
             name = name.substring(0, name.indexOf(LINE_BREAK)).trim();
 
         if (name.isEmpty())
-            throw BotException.createWithI18n("noName");
+            throw BotException.createWithI18n("error.noName");
         if (!notTrimmedName.startsWith(SPACE))
-            throw BotException.createWithI18n("badCommand");
+            throw BotException.createWithI18n("error.badCommand");
 
         String threadRootId = message.getThreadRootId();
         if (empty(threadRootId))
-            throw BotException.createWithI18n("addCommandInConversation");
+            throw BotException.createWithI18n("error.addCommandInConversation");
 
         String directReplyMessageId = message.getDirectReplyMessageId();
         if (empty(directReplyMessageId))
-            throw BotException.createWithI18n("noReplyInThread");
+            throw BotException.createWithI18n("error.noReplyInThread");
 
         if (name.length() > MAX_NAME_LEN)
-            throw BotException.create(String.format(MessageService.get("tooLongName"), MAX_NAME_LEN));
+            throw BotException.create(String.format(MessageService.get("error.tooLongName"), MAX_NAME_LEN));
         if (ILLEGAL_NAME_PATTERN.matcher(name).matches())
-            throw BotException.createWithI18n("illegalName");
+            throw BotException.createWithI18n("error.illegalName");
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
         if (messageAssignmentsMap.containsKey(name))
-            throw BotException.createWithI18n("nameExists", msgPrefix);
+            throw BotException.createWithI18n("error.nameExists", msgPrefix);
 
         Message directReplyMessage = RequestUtils.getMessage(message.getWorkspace(), message.getConversationId(), directReplyMessageId);
         if (directReplyMessage == null)
-            throw BotException.createWithI18n("noDirectReplyMessage");
+            throw BotException.createWithI18n("error.noDirectReplyMessage");
 
         Message msg = new Message();
         msg.setId(directReplyMessageId);
@@ -186,9 +204,9 @@ public class UserCommandHandler extends Thread {
             name = name.substring(0, name.indexOf(LINE_BREAK)).trim();
 
         if (name.isEmpty())
-            throw BotException.createWithI18n("noName");
+            throw BotException.createWithI18n("error.noName");
         if (!notTrimmedName.startsWith(SPACE))
-            throw BotException.createWithI18n("badCommand");
+            throw BotException.createWithI18n("error.badCommand");
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
@@ -196,7 +214,7 @@ public class UserCommandHandler extends Thread {
         if (messageAssignmentsMap.isEmpty())
             throw BotException.createWithI18n("dontHaveAnyMessages", msgPrefix);
         if (!messageAssignmentsMap.containsKey(name))
-            throw BotException.createWithI18n("noSuchMessage", msgPrefix);
+            throw BotException.createWithI18n("error.noSuchMessage", msgPrefix);
 
         sendSingleResult(messageAssignmentsMap.get(name).getMessage(), name);
     }
@@ -208,7 +226,7 @@ public class UserCommandHandler extends Thread {
             query = query.substring(0, query.indexOf(LINE_BREAK)).trim();
 
         if (query.isEmpty())
-            throw BotException.createWithI18n("noQuery");
+            throw BotException.createWithI18n("error.noQuery");
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
@@ -231,9 +249,9 @@ public class UserCommandHandler extends Thread {
             name = name.substring(0, name.indexOf(LINE_BREAK)).trim();
 
         if (name.isEmpty())
-            throw BotException.createWithI18n("noName");
+            throw BotException.createWithI18n("error.noName");
         if (!notTrimmedName.startsWith(SPACE))
-            throw BotException.createWithI18n("badCommand");
+            throw BotException.createWithI18n("error.badCommand");
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
@@ -241,7 +259,7 @@ public class UserCommandHandler extends Thread {
         if (messageAssignmentsMap.isEmpty())
             throw BotException.createWithI18n("dontHaveAnyMessages", msgPrefix);
         if (!messageAssignmentsMap.containsKey(name))
-            throw BotException.createWithI18n("noSuchMessage", msgPrefix);
+            throw BotException.createWithI18n("error.noSuchMessage", msgPrefix);
 
         messageAssignmentsProvider.removeFromMessageAssignmentsMap(name);
         dao.update(messageAssignmentsProvider);
@@ -252,9 +270,9 @@ public class UserCommandHandler extends Thread {
         String feedbackText = command.substring(FEEDBACK_PREFIX.length()).trim();
         List<MessageFile> fileInfos = message.getCreatedFileInfos();
         if (feedbackText.isEmpty() && fileInfos.isEmpty())
-            throw BotException.createWithI18n("badCommand");
+            throw BotException.createWithI18n("error.badCommand");
         if (reportConversation == null)
-            throw BotException.createWithI18n("feedbackNotSupported");
+            throw BotException.createWithI18n("error.feedbackNotSupported");
 
         ir.limoo.driver.entity.User user = RequestUtils.getUser(message.getWorkspace(), message.getUserId());
         String userDisplayName = user != null ? user.getDisplayName() : MessageService.get("unknownUser");
@@ -294,7 +312,7 @@ public class UserCommandHandler extends Thread {
             content = content.substring(0, content.indexOf(LINE_BREAK)).trim();
 
         if (!content.isEmpty())
-            throw BotException.createWithI18n("badCommand");
+            throw BotException.createWithI18n("error.badCommand");
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
@@ -312,9 +330,9 @@ public class UserCommandHandler extends Thread {
             query = query.substring(0, query.indexOf(LINE_BREAK)).trim();
 
         if (query.isEmpty())
-            throw BotException.createWithI18n("noQuery");
+            throw BotException.createWithI18n("error.noQuery");
         if (!notTrimmedQuery.startsWith(SPACE))
-            throw BotException.createWithI18n("badCommand");
+            throw BotException.createWithI18n("error.badCommand");
 
         Map<String, MessageAssignment<MessageAssignmentsProvider<T>>> messageAssignmentsMap
                 = messageAssignmentsProvider.getCreatedMessageAssignmentsMap();
