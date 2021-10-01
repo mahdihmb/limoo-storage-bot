@@ -97,7 +97,9 @@ public class LimooStorageBot {
                         }
                     }
 
-                    new UserCommandHandler(limooUrl, limooDriver, message, conversation, reportConversation).start();
+                    if (msgText.startsWith(COMMAND_PREFIX) || msgText.startsWith(WORKSPACE_COMMAND_PREFIX)) {
+                        new UserCommandHandler(limooUrl, limooDriver, message, conversation, reportConversation).start();
+                    }
                 } catch (Throwable throwable) {
                     logger.error("", throwable);
                 } finally {
