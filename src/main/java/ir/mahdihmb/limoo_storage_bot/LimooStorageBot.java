@@ -24,6 +24,7 @@ public class LimooStorageBot {
 
     private final String limooUrl;
     private final LimooDriver limooDriver;
+    private final String botMention;
     private Conversation reportConversation;
     private String adminUserId;
     private String restartPostgresScriptFile;
@@ -31,6 +32,7 @@ public class LimooStorageBot {
     public LimooStorageBot(String limooUrl, String botUsername, String botPassword) throws LimooException {
         this.limooUrl = limooUrl;
         this.limooDriver = new LimooDriver(limooUrl, botUsername, botPassword);
+        this.botMention = "@" + limooDriver.getBot().getUsername();
 
         try {
             String reportWorkspaceKey = ConfigService.get("admin.reportWorkspaceKey");
@@ -74,7 +76,7 @@ public class LimooStorageBot {
                         return;
                     }
 
-                    if (msgText.equals("@" + limooDriver.getBot().getUsername())) {
+                    if (msgText.equals(botMention)) {
                         if (empty(threadRootId)) {
                             conversation.send(MessageService.get("help.introduction"));
                             return;
@@ -94,7 +96,11 @@ public class LimooStorageBot {
 
                             directReplyMessage.setWorkspace(message.getWorkspace());
                             message = directReplyMessage;
+                            msgText = message.getText().trim();
                         }
+                    } else if (msgText.startsWith(botMention)) {
+                        message.setText(msgText.substring(botMention.length()));
+                        msgText = message.getText().trim();
                     }
 
                     if (msgText.startsWith(COMMAND_PREFIX) || msgText.startsWith(WORKSPACE_COMMAND_PREFIX)) {
