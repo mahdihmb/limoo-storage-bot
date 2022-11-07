@@ -20,7 +20,7 @@ import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
 
 public class LimooStorageBot {
 
-    private static final transient Logger logger = LoggerFactory.getLogger(LimooStorageBot.class);
+    private static final Logger logger = LoggerFactory.getLogger(LimooStorageBot.class);
 
     private final String limooUrl;
     private final LimooDriver limooDriver;

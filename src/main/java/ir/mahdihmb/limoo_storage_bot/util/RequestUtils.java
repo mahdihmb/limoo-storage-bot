@@ -18,7 +18,7 @@ import java.util.Set;
 
 public class RequestUtils {
 
-    private static final transient Logger logger = LoggerFactory.getLogger(RequestUtils.class);
+    private static final Logger logger = LoggerFactory.getLogger(RequestUtils.class);
 
     private static final String THREADS_ROOT_URI_TEMPLATE = "workspace/items/%s/thread/items/%s";
     private static final String GET_MESSAGE_URI_TEMPLATE = MessageUtils.MESSAGES_ROOT_URI_TEMPLATE + "/%s";
@@ -67,7 +67,7 @@ public class RequestUtils {
     public static void viewLogThread(Workspace workspace, String threadRootId) throws LimooException {
         String uri = String.format(THREAD_VIEW_LOG_URI_TEMPLATE, workspace.getId(), threadRootId);
         ObjectNode body = JacksonUtils.createEmptyObjectNode();
-        body.put("is_viewed", true);
+        body.put("viewed", true);
         workspace.getRequester().executeApiPost(uri, body, workspace.getWorker());
     }
 

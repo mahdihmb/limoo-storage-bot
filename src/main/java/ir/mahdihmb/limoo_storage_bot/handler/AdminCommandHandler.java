@@ -17,13 +17,11 @@ import ir.mahdihmb.limoo_storage_bot.entity.Feedback;
 import ir.mahdihmb.limoo_storage_bot.entity.User;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
 import org.hibernate.HibernateException;
+import org.hibernate.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +31,7 @@ import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
 
 public class AdminCommandHandler extends Thread {
 
-    private static final transient Logger logger = LoggerFactory.getLogger(AdminCommandHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(AdminCommandHandler.class);
 
     private final LimooDriver limooDriver;
     private final Message message;
@@ -69,8 +67,6 @@ public class AdminCommandHandler extends Thread {
             }
         } catch (Throwable throwable) {
             handleException(throwable);
-        } finally {
-            HibernateSessionManager.closeCurrentSession();
         }
     }
 
@@ -140,32 +136,33 @@ public class AdminCommandHandler extends Thread {
     }
 
     private void handleReport() throws LimooException {
-        HibernateSessionManager.openSession();
-        StringBuilder report = new StringBuilder();
+        try (Session ignored = HibernateSessionManager.openSession()) {
+            StringBuilder report = new StringBuilder();
 
-        Map<String, Workspace> workspaceIdsMap = new HashMap<>();
-        for (Workspace workspace : limooDriver.getWorkspaces()) {
-            workspaceIdsMap.put(workspace.getId(), workspace);
-        }
-        report.append(MessageService.get("workspaces")).append(LINE_BREAK);
-        for (ir.mahdihmb.limoo_storage_bot.entity.Workspace workspace : WorkspaceDAO.getInstance().list()) {
-            report.append("- ").append(workspaceIdsMap.get((String) workspace.getId()).getDisplayName())
-                    .append(SPACE).append("(").append(workspace.getCreatedMessageAssignmentsMap().size()).append(")")
-                    .append(LINE_BREAK);
-        }
+            Map<Serializable, Integer> workspaceToMessageSize = new HashMap<>();
+            for (ir.mahdihmb.limoo_storage_bot.entity.Workspace workspace : WorkspaceDAO.getInstance().list()) {
+                workspaceToMessageSize.put(workspace.getId(), workspace.getCreatedMessageAssignmentsMap().size());
+            }
+            report.append(MessageService.get("workspaces")).append(LINE_BREAK);
+            for (Workspace workspace : limooDriver.getWorkspaces()) {
+                report.append("- ").append(workspace.getDisplayName())
+                        .append(SPACE).append("(").append(workspaceToMessageSize.get(workspace.getId())).append(")")
+                        .append(LINE_BREAK);
+            }
 
-        Map<String, Integer> idUsageMap = new HashMap<>();
-        for (User user : UserDAO.getInstance().list()) {
-            idUsageMap.put((String) user.getId(), user.getCreatedMessageAssignmentsMap().size());
-        }
-        report.append(MessageService.get("users")).append(LINE_BREAK);
-        for (ir.limoo.driver.entity.User user : RequestUtils.getUsersByIds(message.getWorkspace(), idUsageMap.keySet())) {
-            report.append("- ").append(user.getDisplayName())
-                    .append(SPACE).append("(").append(idUsageMap.get(user.getId())).append(")")
-                    .append(LINE_BREAK);
-        }
+            Map<String, Integer> userToMessageSize = new HashMap<>();
+            for (User user : UserDAO.getInstance().list()) {
+                userToMessageSize.put((String) user.getId(), user.getCreatedMessageAssignmentsMap().size());
+            }
+            report.append(MessageService.get("users")).append(LINE_BREAK);
+            for (ir.limoo.driver.entity.User user : RequestUtils.getUsersByIds(message.getWorkspace(), userToMessageSize.keySet())) {
+                report.append("- ").append(user.getDisplayName())
+                        .append(SPACE).append("(").append(userToMessageSize.get(user.getId())).append(")")
+                        .append(LINE_BREAK);
+            }
 
-        message.sendInThread(report.toString());
+            message.sendInThread(report.toString());
+        }
     }
 
     private void handleSendUpdateInLobby(String command) throws LimooException {
@@ -184,29 +181,30 @@ public class AdminCommandHandler extends Thread {
     }
 
     private void handleResponseToFeedback(String command) throws LimooException {
-        HibernateSessionManager.openSession();
-        String response = command.substring(ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX.length()).trim();
-        List<MessageFile> fileInfos = message.getCreatedFileInfos();
-        if (empty(message.getThreadRootId()) || response.isEmpty() && fileInfos.isEmpty()) {
-            RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), DISLIKE_REACTION);
-            return;
-        }
+        try (Session ignored = HibernateSessionManager.openSession()) {
+            String response = command.substring(ADMIN_RESPONSE_TO_FEEDBACK_COMMAND_PREFIX.length()).trim();
+            List<MessageFile> fileInfos = message.getCreatedFileInfos();
+            if (empty(message.getThreadRootId()) || response.isEmpty() && fileInfos.isEmpty()) {
+                RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), DISLIKE_REACTION);
+                return;
+            }
 
-        Feedback feedback = FeedbackDAO.getInstance().getByAdminThreadRootId(message.getThreadRootId());
-        if (feedback == null) {
-            message.sendInThread(MessageService.get("noFeedbackInDb"));
-            return;
-        }
+            Feedback feedback = FeedbackDAO.getInstance().getByAdminThreadRootId(message.getThreadRootId());
+            if (feedback == null) {
+                message.sendInThread(MessageService.get("noFeedbackInDb"));
+                return;
+            }
 
-        String fullResponseToUser = MessageService.get("adminResponse") + LINE_BREAK + response;
-        Message.Builder messageBuilder = new Message.Builder().text(fullResponseToUser).fileInfos(fileInfos)
-                .threadRootId(feedback.getUserThreadRootId());
-        MessageUtils.sendMessage(
-                messageBuilder,
-                limooDriver.getWorkspaceById(feedback.getUserWorkspaceId()),
-                feedback.getUserConversationId()
-        );
-        RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
+            String fullResponseToUser = MessageService.get("adminResponse") + LINE_BREAK + response;
+            Message.Builder messageBuilder = new Message.Builder().text(fullResponseToUser).fileInfos(fileInfos)
+                    .threadRootId(feedback.getUserThreadRootId());
+            MessageUtils.sendMessage(
+                    messageBuilder,
+                    limooDriver.getWorkspaceById(feedback.getUserWorkspaceId()),
+                    feedback.getUserConversationId()
+            );
+            RequestUtils.reactToMessage(message.getWorkspace(), conversation.getId(), message.getId(), LIKE_REACTION);
+        }
     }
 
     private void handleDeleteBotMessage() throws LimooException {

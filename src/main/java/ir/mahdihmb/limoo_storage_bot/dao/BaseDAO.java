@@ -16,7 +16,7 @@ import java.util.function.Function;
 
 public class BaseDAO<T extends IdProvider> {
 
-    private static final transient Logger logger = LoggerFactory.getLogger(BaseDAO.class);
+    private static final Logger logger = LoggerFactory.getLogger(BaseDAO.class);
 
     private final Class<T> persistentClass;
 

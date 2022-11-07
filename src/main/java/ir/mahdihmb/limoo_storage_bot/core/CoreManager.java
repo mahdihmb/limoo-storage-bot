@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 
 public class CoreManager {
 
-    private static final transient Logger logger = LoggerFactory.getLogger(CoreManager.class);
+    private static final Logger logger = LoggerFactory.getLogger(CoreManager.class);
 
     public static void initApp() {
         try {

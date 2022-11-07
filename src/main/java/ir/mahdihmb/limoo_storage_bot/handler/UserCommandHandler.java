@@ -17,6 +17,7 @@ import ir.mahdihmb.limoo_storage_bot.exception.BotException;
 import ir.mahdihmb.limoo_storage_bot.util.RequestUtils;
 import org.hibernate.Hibernate;
 import org.hibernate.HibernateException;
+import org.hibernate.Session;
 import org.hibernate.proxy.HibernateProxy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,7 @@ import static ir.mahdihmb.limoo_storage_bot.util.GeneralUtils.*;
 
 public class UserCommandHandler extends Thread {
 
-    private static final transient Logger logger = LoggerFactory.getLogger(UserCommandHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(UserCommandHandler.class);
 
     private final String limooUrl;
     private final LimooDriver limooDriver;
@@ -56,8 +57,7 @@ public class UserCommandHandler extends Thread {
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public void run() {
-        try {
-            HibernateSessionManager.openSession();
+        try (Session ignored = HibernateSessionManager.openSession()) {
             User user = UserDAO.getInstance().getOrCreate(message.getUserId());
             Workspace workspace = WorkspaceDAO.getInstance().getOrCreate(message.getWorkspace().getId());
 
@@ -104,8 +104,6 @@ public class UserCommandHandler extends Thread {
             }
         } catch (Throwable throwable) {
             handleException(throwable);
-        } finally {
-            HibernateSessionManager.closeCurrentSession();
         }
     }
 

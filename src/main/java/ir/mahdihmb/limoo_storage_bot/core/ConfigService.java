@@ -13,7 +13,7 @@ import java.io.File;
 
 public class ConfigService {
 
-    private static final transient Logger logger = LoggerFactory.getLogger(ConfigService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigService.class);
 
     private static final String CONFIG_PROPERTIES_FILE = "config.properties";
     private static Configuration configuration;
